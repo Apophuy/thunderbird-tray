@@ -43,11 +43,12 @@ minimum. CI runs the declared toolchain so the claim remains tested.
 The extension requires Node.js 22.13 or newer and uses locked npm dependencies.
 It emits readable ES modules rather than bundled or minified output.
 
-Stage 3 adds `toml` 1.1.6 as the only configuration dependency. That release
-declares Rust 1.85 as its minimum and keeps the workspace MSRV unchanged. The
-small fixed CLI surface is parsed in the application crate instead of adding a
-general CLI framework; its parser also distinguishes Mozilla's two Native
-Messaging launch arguments from user commands.
+Stage 3 adds `toml` 1.1.6 for configuration. Stage 4 adds `ksni` 0.3.6 behind a
+local adapter for StatusNotifierItem and DBusMenu; Cargo resolves its `zbus`
+dependency to the newest release compatible with the workspace's Rust 1.85
+MSRV. The small fixed CLI surface is parsed in the application crate instead of
+adding a general CLI framework; its parser also distinguishes Mozilla's two
+Native Messaging launch arguments from user commands.
 
 ## Identifiers
 
@@ -76,3 +77,16 @@ Plasma owns the menu chrome, so the application focuses on a coherent icon
 family, unambiguous normal/unread/disconnected states, concise action ordering,
 keyboard-friendly native items, and a visible language selector. A standalone
 settings window requires a later ADR and is not part of the current MVP.
+
+The StatusNotifierItem adapter runs on its own service thread. A separate
+Native Messaging reader publishes typed state changes, while one dedicated
+writer owns stdout so framed protocol output cannot interleave. Tray callbacks
+only enqueue typed actions. The pure presentation model and adapter menu tests
+run without D-Bus, KDE, Thunderbird, or Wayland. See
+[`adr/0001-status-notifier-item.md`](adr/0001-status-notifier-item.md) and
+[`tray-ux.md`](tray-ux.md).
+
+After the Native Messaging stream closes, the Stage 4 process preserves only a
+disconnected tray state and accepts Quit; unread data has already been cleared.
+Stage 5 will add the well-known single-instance service and reconnection path
+needed to merge subsequent Thunderbird launches with that surviving process.

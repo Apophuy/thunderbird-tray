@@ -7,6 +7,9 @@ pub mod config;
 pub mod core;
 pub mod doctor;
 pub mod i18n;
+pub mod sni;
+pub mod tray;
+mod tray_icons;
 
 use std::io::{Read, Write};
 
@@ -34,6 +37,9 @@ pub enum HostError {
     /// An incoming snapshot was inconsistent with core application state.
     #[error(transparent)]
     State(#[from] StateError),
+    /// The application stopped accepting protocol responses.
+    #[error("native messaging output channel closed")]
+    OutputChannelClosed,
 }
 
 /// Serves framed protocol messages until the peer closes its input stream.
@@ -42,8 +48,21 @@ pub enum HostError {
 /// `tracing`, whose binary-level subscriber is explicitly configured for
 /// stderr.
 pub fn run_host(input: &mut impl Read, output: &mut impl Write) -> Result<(), HostError> {
+    run_host_with_callbacks(input, |message| write_message(output, message), |_| {})
+}
+
+/// Serves a connection while reporting outgoing messages and state changes.
+///
+/// This variant lets the binary keep stdout on a dedicated writer thread and
+/// present core state in the tray without coupling either concern to framing.
+pub fn run_host_with_callbacks(
+    input: &mut impl Read,
+    mut send: impl FnMut(&Message) -> Result<(), HostError>,
+    mut state_changed: impl FnMut(&AppState),
+) -> Result<(), HostError> {
     let mut state = AppState::default();
     state.apply(AppEvent::ConnectionStarted)?;
+    state_changed(&state);
 
     while let Some(frame) = read_frame(input)? {
         match decode(&frame)? {
@@ -52,12 +71,10 @@ pub fn run_host(input: &mut impl Read, output: &mut impl Write) -> Result<(), Ho
             }
             DecodeOutcome::Message(Message::Hello(_)) => {
                 state.apply(AppEvent::Connected)?;
-                write_message(
-                    output,
-                    &Message::HelloAck(HelloAckPayload {
-                        host_version: env!("CARGO_PKG_VERSION").to_owned(),
-                    }),
-                )?;
+                state_changed(&state);
+                send(&Message::HelloAck(HelloAckPayload {
+                    host_version: env!("CARGO_PKG_VERSION").to_owned(),
+                }))?;
                 info!("native messaging handshake completed");
             }
             DecodeOutcome::Message(Message::FullState(snapshot))
@@ -75,6 +92,7 @@ pub fn run_host(input: &mut impl Read, output: &mut impl Write) -> Result<(), Ho
                         })
                         .collect(),
                 })?;
+                state_changed(&state);
                 info!(
                     total_unread = state.thunderbird().total_unread(),
                     account_count = state.thunderbird().accounts().len(),
@@ -94,11 +112,13 @@ pub fn run_host(input: &mut impl Read, output: &mut impl Write) -> Result<(), Ho
     }
 
     state.apply(AppEvent::Disconnected)?;
+    state_changed(&state);
 
     Ok(())
 }
 
-fn write_message(output: &mut impl Write, message: &Message) -> Result<(), HostError> {
+/// Writes one framed protocol message to the native-host stdout stream.
+pub fn write_message(output: &mut impl Write, message: &Message) -> Result<(), HostError> {
     let payload = encode(message)?;
     write_frame(output, &payload)?;
     Ok(())

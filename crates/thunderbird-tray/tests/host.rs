@@ -2,7 +2,8 @@
 
 use std::io::Cursor;
 
-use thunderbird_tray::run_host;
+use thunderbird_tray::core::TrayState;
+use thunderbird_tray::{run_host, run_host_with_callbacks};
 use thunderbird_tray_native_messaging::{read_frame, write_frame};
 use thunderbird_tray_protocol::{
     AccountState, DecodeOutcome, FullStatePayload, HelloAckPayload, HelloPayload, Message, decode,
@@ -79,4 +80,45 @@ fn pre_handshake_state_and_unknown_messages_never_pollute_stdout() {
     run_host(&mut Cursor::new(input), &mut output).unwrap();
 
     assert!(output.is_empty());
+}
+
+#[test]
+fn callback_boundary_reports_state_and_clears_it_on_eof() {
+    let input = input_stream(&[
+        Message::Hello(HelloPayload {
+            extension_version: "0.1.0".into(),
+            thunderbird_version: "156.0.1".into(),
+        }),
+        Message::FullState(FullStatePayload {
+            total_unread: 8,
+            accounts: vec![AccountState {
+                id: "account1".into(),
+                name: "Personal".into(),
+                unread: 8,
+            }],
+        }),
+    ]);
+    let mut responses = Vec::new();
+    let mut states = Vec::new();
+
+    run_host_with_callbacks(
+        &mut Cursor::new(input),
+        |message| {
+            responses.push(message.clone());
+            Ok(())
+        },
+        |state| states.push(state.tray()),
+    )
+    .unwrap();
+
+    assert_eq!(responses.len(), 1);
+    assert_eq!(
+        states,
+        vec![
+            TrayState::Disconnected,
+            TrayState::Disconnected,
+            TrayState::Unread(8),
+            TrayState::Disconnected,
+        ]
+    );
 }

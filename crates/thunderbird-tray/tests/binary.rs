@@ -19,6 +19,10 @@ fn thunderbird_arguments_start_protocol_mode_with_clean_stdout() {
             "XDG_CONFIG_HOME",
             std::env::temp_dir().join("thunderbird-tray-missing-test-config"),
         )
+        .env(
+            "DBUS_SESSION_BUS_ADDRESS",
+            "unix:path=/tmp/thunderbird-tray-missing-test-bus",
+        )
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

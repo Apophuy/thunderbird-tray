@@ -7,6 +7,7 @@ use std::ffi::OsString;
 
 use crate::cli::{CliError, display_os};
 use crate::config::{ConfigError, LanguageMode};
+use crate::core::TrayState;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Language {
@@ -218,6 +219,60 @@ Options:\n  --config <PATH>\n  --window-backend <auto|kde-wayland|x11|none>\n  \
         }
     }
 
+    pub fn tray_labels(self, state: TrayState, show_unread_count: bool) -> TrayLabels {
+        let inbox_status = match (self.language, state, show_unread_count) {
+            (Language::English, TrayState::Disconnected, _) => {
+                "Thunderbird connection unavailable".to_owned()
+            }
+            (Language::Russian, TrayState::Disconnected, _) => {
+                "Нет соединения с Thunderbird".to_owned()
+            }
+            (Language::English, TrayState::NoUnread, _) => {
+                "Inbox is up to date — no unread messages".to_owned()
+            }
+            (Language::Russian, TrayState::NoUnread, _) => {
+                "Входящие прочитаны — новых писем нет".to_owned()
+            }
+            (Language::English, TrayState::Unread(count), true) => {
+                format!("{} unread {} in Inbox", count, english_message_word(count))
+            }
+            (Language::Russian, TrayState::Unread(count), true) => {
+                format!("{} {} во Входящих", count, russian_unread_phrase(count))
+            }
+            (Language::English, TrayState::Unread(_), false) => {
+                "Unread messages in Inbox".to_owned()
+            }
+            (Language::Russian, TrayState::Unread(_), false) => {
+                "Непрочитанные письма во Входящих".to_owned()
+            }
+        };
+
+        match self.language {
+            Language::English => TrayLabels {
+                title: "thunderbird-tray",
+                inbox_status,
+                open_thunderbird: "_Open Thunderbird",
+                refresh: "_Refresh Inbox status",
+                language: "_Language",
+                automatic: "_Automatic",
+                english: "_English",
+                russian: "_Русский",
+                quit: "_Quit",
+            },
+            Language::Russian => TrayLabels {
+                title: "thunderbird-tray",
+                inbox_status,
+                open_thunderbird: "_Открыть Thunderbird",
+                refresh: "_Обновить состояние Входящих",
+                language: "_Язык",
+                automatic: "_Автоматически",
+                english: "_English",
+                russian: "_Русский",
+                quit: "_Выйти",
+            },
+        }
+    }
+
     pub fn doctor_title(self) -> &'static str {
         match self.language {
             Language::English => "thunderbird-tray diagnostics",
@@ -249,6 +304,35 @@ Options:\n  --config <PATH>\n  --window-backend <auto|kde-wayland|x11|none>\n  \
             },
         }
     }
+}
+
+fn english_message_word(count: u32) -> &'static str {
+    if count == 1 { "message" } else { "messages" }
+}
+
+fn russian_unread_phrase(count: u32) -> &'static str {
+    let last_two = count % 100;
+    let last = count % 10;
+    if last == 1 && last_two != 11 {
+        "непрочитанное письмо"
+    } else if (2..=4).contains(&last) && !(12..=14).contains(&last_two) {
+        "непрочитанных письма"
+    } else {
+        "непрочитанных писем"
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TrayLabels {
+    pub title: &'static str,
+    pub inbox_status: String,
+    pub open_thunderbird: &'static str,
+    pub refresh: &'static str,
+    pub language: &'static str,
+    pub automatic: &'static str,
+    pub english: &'static str,
+    pub russian: &'static str,
+    pub quit: &'static str,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

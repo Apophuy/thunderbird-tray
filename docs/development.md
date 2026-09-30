@@ -82,6 +82,27 @@ The generated manifest is named
 `io.github.apophuy.thunderbird_tray.json`. Its `allowed_extensions` value comes
 from the centralized permanent extension ID in `identifiers.json`.
 
+## KDE Plasma Wayland tray check
+
+After building and installing the development host as above, load the extension
+in Thunderbird on a Plasma Wayland session. Verify the following without
+restarting the host:
+
+1. The tray item appears with the blue connected envelope after the handshake.
+2. Changing the Inbox unread state changes the icon to or from its coral badge.
+3. **Refresh Inbox status** requests a new complete snapshot and stays disabled
+   while disconnected.
+4. The tooltip and read-only menu status agree and never retain an old count
+   after the extension disconnects.
+5. **Language → Русский**, **English**, and **Automatic** update the open menu
+   text and the next tooltip; the choice survives a restart in `config.toml`.
+6. **Quit** removes the item from Plasma without leaving the SNI service
+   registered.
+
+The initial Stage 4 check targets KDE Plasma 6.3.6 on Wayland with
+`org.kde.StatusNotifierWatcher` protocol version 0. The Open Thunderbird item is
+intentionally disabled until the launch/window-backend stage.
+
 ## Thunderbird documentation baseline
 
 Extension changes must be checked against the Thunderbird 156 Manifest V3 API

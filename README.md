@@ -10,10 +10,9 @@ integration with KDE Plasma Wayland as the first fully supported desktop.
 This is a new implementation inspired by Birdtray's user-facing behavior. It is
 not a Birdtray fork and does not reuse Birdtray source or architecture.
 
-The project is under active development. The current vertical slice connects a
-Thunderbird 156+ extension to the Rust native host and reports aggregate unread
-counts from Inbox folders. The tray interface is planned but is not implemented
-yet.
+The project is under active development. The current implementation connects a
+Thunderbird 156+ extension to the Rust native host and presents aggregate Inbox
+unread state through a toolkit-free StatusNotifierItem and native DBusMenu.
 
 ## Prerequisites
 
@@ -53,6 +52,18 @@ for all initial options.
 Run `thunderbird-tray doctor` for a localized, privacy-preserving summary of the
 effective configuration. Use `thunderbird-tray --help` for CLI options.
 
+## Tray interface
+
+The tray distinguishes connected, unread, and disconnected states with its
+icon and localized text. Its native menu shows the current Inbox status, can
+request a fresh complete snapshot, and offers a persistent language selector
+for Automatic, English, and Русский. The Open Thunderbird item is visible but
+remains disabled until the window/launch backend is implemented.
+
+The icons are embedded at multiple sizes, so the core tray UI does not depend
+on an installed icon theme. Plasma renders the menu itself and supplies native
+keyboard navigation and theming.
+
 ## Privacy
 
 Thunderbird remains authoritative for accounts, folders, and unread state. The
@@ -64,8 +75,8 @@ the network.
 ## Current limitations
 
 - Only Inbox folders contribute to the unread total.
-- The tray UI, language selector, and desktop window controls are planned for
-  later MVP stages.
+- The Open Thunderbird action and desktop window controls are planned for later
+  MVP stages.
 - Linux is the only supported platform; KDE Plasma Wayland is the first desktop
   target.
 

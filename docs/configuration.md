@@ -27,9 +27,9 @@ backend = "auto"
 ```
 
 Language values are `auto`, `en`, and `ru`. Automatic mode selects Russian for
-a Russian process locale and otherwise falls back to English. A future tray
-language selector will persist its explicit override through the same config
-boundary.
+a Russian process locale and otherwise falls back to English. The tray language
+submenu changes visible text immediately and persists the selected mode through
+this config boundary.
 
 Window backend values are `auto`, `kde-wayland`, `x11`, and `none`. Backend
 implementations arrive in later stages; Stage 3 only validates and reports the
