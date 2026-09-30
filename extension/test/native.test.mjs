@@ -138,3 +138,41 @@ test("disconnect schedules a bounded reconnect", () => {
   assert.equal(secondPort.messages[0].type, "hello");
   assert.equal(reconnectDelay(100), 30_000);
 });
+
+test("reconnect repeats the handshake and sends a fresh complete state", async () => {
+  const firstPort = new FakePort();
+  const secondPort = new FakePort();
+  const ports = [firstPort, secondPort];
+  const scheduled = [];
+  let collections = 0;
+  const client = new NativeClient({
+    connect: () => ports.shift(),
+    collectState: async () => ({
+      totalUnread: ++collections,
+      accounts: [],
+    }),
+    disconnectError: () => undefined,
+    hello: { extensionVersion: "0.1.0", thunderbirdVersion: "156.0.1" },
+    schedule: (callback, delay) => scheduled.push({ callback, delay }),
+    logger: { info() {}, warn() {}, error() {} },
+  });
+
+  client.start();
+  firstPort.onMessage.emit(helloAck({ hostVersion: "0.1.0" }));
+  await settle();
+  assert.equal(firstPort.messages.at(-1).payload.totalUnread, 1);
+
+  firstPort.disconnect();
+  assert.equal(scheduled[0].delay, 250);
+  scheduled[0].callback();
+  assert.equal(secondPort.messages[0].type, "hello");
+
+  firstPort.onMessage.emit(requestFullState());
+  await settle();
+  assert.equal(firstPort.messages.length, 2);
+
+  secondPort.onMessage.emit(helloAck({ hostVersion: "0.1.0" }));
+  await settle();
+  assert.equal(secondPort.messages.at(-1).type, "fullState");
+  assert.equal(secondPort.messages.at(-1).payload.totalUnread, 2);
+});

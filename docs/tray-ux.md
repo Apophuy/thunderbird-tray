@@ -29,10 +29,12 @@ persistent counter.
 5. Separator.
 6. Quit — cleanly unregisters the tray service and exits.
 
-When the Native Messaging stream closes, the Stage 4 process remains visible
+When the Native Messaging stream closes, the persistent process remains visible
 in the disconnected state so stale unread data is never mistaken for current
-state. Consolidating a later Thunderbird-launched host with that surviving tray
-process is intentionally the Stage 5 single-instance/reconnect responsibility.
+state. A later Thunderbird-launched host attaches to the same process, repeats
+the handshake, and replaces the model with a fresh complete snapshot. Loss of
+Plasma's StatusNotifierWatcher is recoverable and does not terminate the tray
+service.
 
 English and Russian labels use DBusMenu underscore mnemonics where practical.
 The read-only status line explains the current state without requiring a

@@ -557,6 +557,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ksni",
+ "rustix",
  "serde",
  "serde_json",
  "thiserror",
@@ -565,6 +566,7 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
+ "zbus",
 ]
 
 [[package]]

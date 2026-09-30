@@ -99,6 +99,26 @@ restarting the host:
 6. **Quit** removes the item from Plasma without leaving the SNI service
    registered.
 
+For the Stage 5 lifecycle check:
+
+1. Start the application once without Native Messaging arguments. A second
+   interactive start must exit with an already-running diagnostic and must not
+   add another tray item.
+2. With the extension connected, close Thunderbird. The tray must immediately
+   switch to disconnected and must not retain the previous unread count.
+3. Start Thunderbird again. The same application process must accept the new
+   Native Messaging stream, complete a new handshake, and show a fresh full
+   Inbox state.
+4. Restart Plasma shell or otherwise cycle `org.kde.StatusNotifierWatcher`.
+   The application must stay alive and the tray item must register again when
+   the watcher returns.
+
+The persistent process uses the session D-Bus name
+`io.github.apophuy.thunderbird-tray`; there are no PID files or root-owned
+services. A Thunderbird-launched helper passes its standard streams to the
+owner over the user session bus and stays alive until that Native Messaging
+session completes.
+
 The initial Stage 4 check targets KDE Plasma 6.3.6 on Wayland with
 `org.kde.StatusNotifierWatcher` protocol version 0. The Open Thunderbird item is
 intentionally disabled until the launch/window-backend stage.

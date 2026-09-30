@@ -94,6 +94,9 @@ fn help_and_doctor_are_localized_without_mail_data() {
     assert!(report.contains("Диагностика thunderbird-tray"));
     assert!(report.contains("Оконный бэкенд: none"));
     assert!(report.contains("Выбранный язык: ru"));
+    assert!(localizer.already_running().contains("уже запущен"));
+    assert!(localizer.lifecycle_error(&"D-Bus").contains("D-Bus"));
+    assert!(localizer.service_start_timeout().contains("не запустилась"));
     assert!(!report.contains("unread"));
     assert!(!report.contains("account"));
 }

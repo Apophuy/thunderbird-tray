@@ -219,6 +219,27 @@ Options:\n  --config <PATH>\n  --window-backend <auto|kde-wayland|x11|none>\n  \
         }
     }
 
+    pub fn already_running(self) -> &'static str {
+        match self.language {
+            Language::English => "thunderbird-tray is already running in this user session",
+            Language::Russian => "thunderbird-tray уже запущен в этом сеансе пользователя",
+        }
+    }
+
+    pub fn lifecycle_error(self, error: &impl std::fmt::Display) -> String {
+        match self.language {
+            Language::English => format!("application lifecycle failed: {error}"),
+            Language::Russian => format!("ошибка управления процессом приложения: {error}"),
+        }
+    }
+
+    pub fn service_start_timeout(self) -> &'static str {
+        match self.language {
+            Language::English => "the background thunderbird-tray service did not start in time",
+            Language::Russian => "фоновая служба thunderbird-tray не запустилась вовремя",
+        }
+    }
+
     pub fn tray_labels(self, state: TrayState, show_unread_count: bool) -> TrayLabels {
         let inbox_status = match (self.language, state, show_unread_count) {
             (Language::English, TrayState::Disconnected, _) => {

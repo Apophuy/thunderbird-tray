@@ -146,6 +146,18 @@ impl ksni::Tray for SniTray {
             .into(),
         ]
     }
+
+    fn watcher_online(&self) {
+        tracing::info!("StatusNotifierWatcher is online; tray item registered");
+    }
+
+    fn watcher_offline(&self, reason: ksni::OfflineReason) -> bool {
+        tracing::warn!(
+            ?reason,
+            "StatusNotifierWatcher is offline; awaiting recovery"
+        );
+        true
+    }
 }
 
 pub struct SniService {
@@ -227,6 +239,13 @@ mod tests {
         };
         (refresh.activate)(&mut tray);
         assert_eq!(receiver.recv().unwrap(), TrayAction::Refresh);
+
+        let quit = match menu.pop().unwrap() {
+            MenuItem::Standard(item) => item,
+            _ => panic!("Quit must be a standard item"),
+        };
+        (quit.activate)(&mut tray);
+        assert_eq!(receiver.recv().unwrap(), TrayAction::Quit);
     }
 
     #[test]
@@ -272,6 +291,12 @@ mod tests {
             tray(TrayState::NoUnread).0.model.presentation().icon,
             TrayIcon::Connected
         );
+    }
+
+    #[test]
+    fn watcher_loss_keeps_the_service_alive_for_reregistration() {
+        let (tray, _) = tray(TrayState::Disconnected);
+        assert!(ksni::Tray::watcher_offline(&tray, ksni::OfflineReason::No));
     }
 
     trait MenuItemTestExt<T> {

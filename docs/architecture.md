@@ -44,11 +44,12 @@ The extension requires Node.js 22.13 or newer and uses locked npm dependencies.
 It emits readable ES modules rather than bundled or minified output.
 
 Stage 3 adds `toml` 1.1.6 for configuration. Stage 4 adds `ksni` 0.3.6 behind a
-local adapter for StatusNotifierItem and DBusMenu; Cargo resolves its `zbus`
-dependency to the newest release compatible with the workspace's Rust 1.85
-MSRV. The small fixed CLI surface is parsed in the application crate instead of
-adding a general CLI framework; its parser also distinguishes Mozilla's two
-Native Messaging launch arguments from user commands.
+local adapter for StatusNotifierItem and DBusMenu. Stage 5 pins `zbus` 5.13.2,
+the newest compatible release for the workspace's Rust 1.85 MSRV, and uses
+`rustix` 1.1 for the service child's process-session boundary. The small fixed
+CLI surface is parsed in the application crate instead of adding a general CLI
+framework; its parser also distinguishes Mozilla's two Native Messaging launch
+arguments from user commands.
 
 ## Identifiers
 
@@ -86,7 +87,19 @@ run without D-Bus, KDE, Thunderbird, or Wayland. See
 [`adr/0001-status-notifier-item.md`](adr/0001-status-notifier-item.md) and
 [`tray-ux.md`](tray-ux.md).
 
-After the Native Messaging stream closes, the Stage 4 process preserves only a
-disconnected tray state and accepts Quit; unread data has already been cleared.
-Stage 5 will add the well-known single-instance service and reconnection path
-needed to merge subsequent Thunderbird launches with that surviving process.
+## Lifecycle and single instance
+
+The application process owns the well-known session-bus name
+`io.github.apophuy.thunderbird-tray`. A Thunderbird-launched native-host process
+passes its stdin and stdout file descriptors to that owner and waits on a
+separate completion descriptor. This keeps Thunderbird's host process contract
+intact while one persistent process owns the tray. Only one Native Messaging
+session is active at a time.
+
+After the Native Messaging stream closes, the persistent process clears unread
+data, presents the disconnected tray state, and waits for a subsequent
+Thunderbird launch. The extension repeats the handshake and sends a complete
+Inbox snapshot after reconnecting. StatusNotifierWatcher loss is also
+recoverable: the tray service stays alive for automatic registration when the
+watcher returns. See
+[`adr/0002-single-instance-lifecycle.md`](adr/0002-single-instance-lifecycle.md).

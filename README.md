@@ -64,6 +64,12 @@ The icons are embedded at multiple sizes, so the core tray UI does not depend
 on an installed icon theme. Plasma renders the menu itself and supplies native
 keyboard navigation and theming.
 
+One persistent process owns the tray through a well-known user-session D-Bus
+name. Closing Thunderbird changes the icon to disconnected without discarding
+the tray process; starting Thunderbird again performs a new handshake and
+replaces the display with a fresh Inbox snapshot. Duplicate starts do not
+create duplicate tray items, and Plasma shell restarts are recoverable.
+
 ## Privacy
 
 Thunderbird remains authoritative for accounts, folders, and unread state. The

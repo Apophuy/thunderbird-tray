@@ -18,6 +18,8 @@ pub enum Command {
     Doctor,
     Help,
     Version,
+    /// Internal long-lived process started by a Native Messaging launcher.
+    Service,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -115,6 +117,7 @@ impl Cli {
                 }
                 Some("--help" | "-h") => set_command(&mut cli, Command::Help)?,
                 Some("--version" | "-V") => set_command(&mut cli, Command::Version)?,
+                Some("--service") => set_command(&mut cli, Command::Service)?,
                 Some("doctor") => set_command(&mut cli, Command::Doctor)?,
                 _ => return Err(CliError::UnknownArgument(argument)),
             }

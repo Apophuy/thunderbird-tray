@@ -82,3 +82,10 @@ fn thunderbird_native_messaging_arguments_select_host_mode() {
         "{6fd82ebe-fdb5-40f5-b272-04585e8ba661}"
     );
 }
+
+#[test]
+fn internal_service_mode_is_distinct_from_native_launch() {
+    let cli = Cli::parse_from(["thunderbird-tray", "--service"]).unwrap();
+    assert_eq!(cli.command, Command::Service);
+    assert!(cli.native_launch.is_none());
+}

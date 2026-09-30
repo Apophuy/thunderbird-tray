@@ -7,6 +7,7 @@ pub mod config;
 pub mod core;
 pub mod doctor;
 pub mod i18n;
+pub mod lifecycle;
 pub mod sni;
 pub mod tray;
 mod tray_icons;
