@@ -12,5 +12,5 @@
     "scripts": ["background.js"],
     "type": "module"
   },
-  "permissions": []
+  "permissions": ["accountsRead", "nativeMessaging"]
 }

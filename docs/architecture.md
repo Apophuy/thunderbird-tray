@@ -41,10 +41,23 @@ It emits readable ES modules rather than bundled or minified output.
 
 ## Identifiers
 
-[`../identifiers.toml`](../identifiers.toml) is the canonical registry for the
-product, application, native-host, and extension identifiers. Repository
-ownership and the permanent extension ID are unresolved, so templates retain
-`<owner>` and `<unresolved>`. The extension manifest deliberately omits a Gecko
-ID until that product decision is made; this is sufficient for temporary
-development loading but not packaged installation or Native Messaging
-authorization.
+[`../identifiers.json`](../identifiers.json) is the canonical registry for the
+product, application, native-host, and extension identifiers. The repository
+owner is `Apophuy`; reverse-DNS identifiers normalize that component to
+lowercase `apophuy`. The permanent extension ID is the generated UUID recorded
+in that registry. Build and installation scripts consume the registry instead
+of duplicating identifiers in source files.
+
+## Localization and tray UX
+
+English and Russian are the supported user-interface languages. English is the
+source language and fallback. A future `auto` language mode resolves Russian
+for Russian system locales and English otherwise; explicit `en` and `ru`
+overrides are persisted. Protocol values and structured logs stay
+language-neutral.
+
+The StatusNotifierItem icon, tooltip, and native DBusMenu are the MVP GUI.
+Plasma owns the menu chrome, so the application focuses on a coherent icon
+family, unambiguous normal/unread/disconnected states, concise action ordering,
+keyboard-friendly native items, and a visible language selector. A standalone
+settings window requires a later ADR and is not part of the current MVP.

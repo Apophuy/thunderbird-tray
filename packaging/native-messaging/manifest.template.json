@@ -1,0 +1,7 @@
+{
+  "name": null,
+  "description": "Native Messaging host for thunderbird-tray",
+  "path": null,
+  "type": "stdio",
+  "allowed_extensions": []
+}
