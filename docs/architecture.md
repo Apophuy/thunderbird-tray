@@ -103,3 +103,18 @@ Inbox snapshot after reconnecting. StatusNotifierWatcher loss is also
 recoverable: the tray service stays alive for automatic registration when the
 watcher returns. See
 [`adr/0002-single-instance-lifecycle.md`](adr/0002-single-instance-lifecycle.md).
+
+## Window control and process launch
+
+Window integration is capability-based: activate, hide, and show support are
+reported independently. Backend selection records environment hints, runtime
+availability, and its reason, while unsupported operations remain typed errors.
+The initial `none` backend keeps the tray and unread monitoring operational on
+desktops without global window control.
+
+Open Thunderbird attempts activation only when the selected backend advertises
+it. Otherwise it launches the configured executable and literal argument array
+through `std::process::Command`, never a shell. Child standard input/output
+cannot interfere with Native Messaging, and the persistent process reaps child
+exit status. See
+[`adr/0003-capability-based-window-control.md`](adr/0003-capability-based-window-control.md).

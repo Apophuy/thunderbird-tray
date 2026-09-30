@@ -119,6 +119,16 @@ services. A Thunderbird-launched helper passes its standard streams to the
 owner over the user session bus and stays alive until that Native Messaging
 session completes.
 
+## Thunderbird launch check
+
+Set `thunderbird.command` to the local executable (currently
+`/opt/thunderbird/thunderbird`) and optionally provide a TOML `arguments` array.
+Select **Open Thunderbird** from the tray while Thunderbird is absent. The
+configured executable must start, with each array value preserved as one
+literal argument. On the Stage 6 `none` backend this launch fallback is
+expected; it does not claim that an existing window was activated. Process
+activation on KDE Plasma Wayland is the next stage.
+
 The initial Stage 4 check targets KDE Plasma 6.3.6 on Wayland with
 `org.kde.StatusNotifierWatcher` protocol version 0. The Open Thunderbird item is
 intentionally disabled until the launch/window-backend stage.

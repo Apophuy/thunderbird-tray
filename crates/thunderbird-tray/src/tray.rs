@@ -97,8 +97,7 @@ impl TrayModel {
             icon,
             status,
             labels: Localizer::new(language).tray_labels(self.state, self.config.show_unread_count),
-            // The launch/window backend is introduced in Stage 6.
-            can_open_thunderbird: false,
+            can_open_thunderbird: true,
             can_refresh: self.state != TrayState::Disconnected,
             language_mode: self.language_mode,
         }

@@ -58,7 +58,9 @@ The tray distinguishes connected, unread, and disconnected states with its
 icon and localized text. Its native menu shows the current Inbox status, can
 request a fresh complete snapshot, and offers a persistent language selector
 for Automatic, English, and Русский. The Open Thunderbird item is visible but
-remains disabled until the window/launch backend is implemented.
+currently launches the configured executable. Window activation is
+capability-based and falls back to launch when the selected backend cannot
+control an existing window.
 
 The icons are embedded at multiple sizes, so the core tray UI does not depend
 on an installed icon theme. Plasma renders the menu itself and supplies native
@@ -81,8 +83,8 @@ the network.
 ## Current limitations
 
 - Only Inbox folders contribute to the unread total.
-- The Open Thunderbird action and desktop window controls are planned for later
-  MVP stages.
+- KDE Plasma window activation/hide/show and optional X11 controls are planned
+  for later MVP stages; process launch already works on unsupported desktops.
 - Linux is the only supported platform; KDE Plasma Wayland is the first desktop
   target.
 

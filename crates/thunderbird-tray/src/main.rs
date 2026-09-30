@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Result, anyhow};
 use thunderbird_tray::cli::{Cli, Command};
-use thunderbird_tray::config::{Config, ConfigSource, LanguageMode};
+use thunderbird_tray::config::{Config, ConfigSource, LanguageMode, WindowBackend};
 use thunderbird_tray::core::TrayState;
 use thunderbird_tray::doctor::DoctorReport;
 use thunderbird_tray::i18n::{LocaleEnvironment, Localizer, resolve_language};
@@ -19,6 +19,10 @@ use thunderbird_tray::lifecycle::{
 };
 use thunderbird_tray::sni::SniService;
 use thunderbird_tray::tray::{TrayAction, TrayModel};
+use thunderbird_tray::window::{
+    BackendAvailability, DesktopEnvironment, OpenOutcome, ProcessLauncher,
+    UnsupportedWindowControl, open_thunderbird, reap_children, select_backend,
+};
 use thunderbird_tray::{HostError, run_host, run_host_with_callbacks, write_message};
 use thunderbird_tray_protocol::{Message, RequestFullStatePayload};
 use tracing::{error, info, warn};
@@ -47,6 +51,7 @@ fn main() -> Result<()> {
         .map_err(|error| anyhow!(system_localizer.config_error(&error)))?;
     let language = resolve_language(config.general.language, &locale_environment);
     let localizer = Localizer::new(language);
+    let requested_window_backend = cli.window_backend.unwrap_or(config.window.backend);
 
     match cli.command {
         Command::Help => return write_output(localizer.help()),
@@ -93,6 +98,7 @@ fn main() -> Result<()> {
         locale_environment,
         lifecycle,
         attached_rx,
+        requested_window_backend,
     )
 }
 
@@ -230,7 +236,24 @@ fn run_application(
     locale_environment: LocaleEnvironment,
     lifecycle: LifecycleService,
     attached_rx: mpsc::Receiver<AttachedNativeStream>,
+    requested_window_backend: WindowBackend,
 ) -> Result<()> {
+    let desktop_environment = DesktopEnvironment::from_process();
+    let backend_selection = select_backend(
+        requested_window_backend,
+        &desktop_environment,
+        BackendAvailability::default(),
+    );
+    info!(
+        requested = backend_selection.requested.as_str(),
+        selected = backend_selection.selected.as_str(),
+        reason = %backend_selection.reason,
+        "selected window backend"
+    );
+    let window_control = UnsupportedWindowControl::new(backend_selection);
+    let launcher = ProcessLauncher;
+    let mut launcher_children = Vec::new();
+
     let automatic_language = resolve_language(LanguageMode::Auto, &locale_environment);
     let model = TrayModel::new(
         TrayState::Disconnected,
@@ -253,6 +276,8 @@ fn run_application(
     let mut current_state = TrayState::Disconnected;
 
     loop {
+        reap_children(&mut launcher_children);
+
         while let Ok(stream) = attached_rx.try_recv() {
             if active_session.is_some() {
                 warn!("ignoring an unexpected second Native Messaging stream");
@@ -325,7 +350,18 @@ fn run_application(
         while let Ok(action) = tray_action_rx.try_recv() {
             match action {
                 TrayAction::OpenThunderbird => {
-                    warn!("Open Thunderbird is unavailable until a window backend is selected");
+                    match open_thunderbird(&window_control, &launcher, &config.thunderbird) {
+                        Ok(OpenOutcome::ActivatedExisting) => {
+                            info!("activated an existing Thunderbird window");
+                        }
+                        Ok(OpenOutcome::Launched(child)) => {
+                            info!(pid = child.id(), "started Thunderbird");
+                            launcher_children.push(child);
+                        }
+                        Err(source) => {
+                            error!(error = %source, "could not open Thunderbird");
+                        }
+                    }
                 }
                 TrayAction::Refresh => {
                     if current_state != TrayState::Disconnected {

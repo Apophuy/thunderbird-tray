@@ -26,6 +26,7 @@ fn defaults_are_sane_and_stable() {
     assert!(config.tray.show_unread_count);
     assert!(!config.tray.hide_when_zero);
     assert_eq!(config.thunderbird.command, "thunderbird");
+    assert!(config.thunderbird.arguments.is_empty());
     assert_eq!(config.window.backend, WindowBackend::Auto);
 }
 
@@ -78,6 +79,7 @@ language = "ru"
 
 [thunderbird]
 command = "/opt/thunderbird/thunderbird"
+arguments = ["--new-instance"]
 
 [window]
 backend = "kde-wayland"
@@ -90,6 +92,7 @@ backend = "kde-wayland"
     assert!(config.general.notifications);
     assert_eq!(config.window.backend, WindowBackend::KdeWayland);
     assert_eq!(config.thunderbird.command, "/opt/thunderbird/thunderbird");
+    assert_eq!(config.thunderbird.arguments, ["--new-instance"]);
     fs::remove_dir_all(directory).unwrap();
 }
 

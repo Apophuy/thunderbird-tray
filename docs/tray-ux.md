@@ -19,8 +19,8 @@ persistent counter.
 
 ## Menu order
 
-1. Open Thunderbird — present but disabled until the launch/backend stage wires
-   the action.
+1. Open Thunderbird — tries supported window activation first and otherwise
+   starts the configured executable with literal arguments.
 2. Read-only Inbox status.
 3. Refresh — asks the connected extension for a complete snapshot; disabled
    while disconnected.

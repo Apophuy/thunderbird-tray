@@ -21,6 +21,7 @@ hide_when_zero = false
 
 [thunderbird]
 command = "thunderbird"
+arguments = []
 
 [window]
 backend = "auto"
@@ -31,9 +32,22 @@ a Russian process locale and otherwise falls back to English. The tray language
 submenu changes visible text immediately and persists the selected mode through
 this config boundary.
 
-Window backend values are `auto`, `kde-wayland`, `x11`, and `none`. Backend
-implementations arrive in later stages; Stage 3 only validates and reports the
-selection.
+`thunderbird.command` is one executable path or program name and `arguments` is
+an array of literal process arguments. Neither value is parsed by a shell. For
+example:
+
+```toml
+[thunderbird]
+command = "/opt/thunderbird/thunderbird"
+arguments = ["--profile", "/home/user/Thunderbird Profile"]
+```
+
+Window backend values are `auto`, `kde-wayland`, `x11`, and `none`. Selection
+combines the configured value with desktop hints and runtime backend
+availability. An unavailable explicit backend degrades honestly to `none`; it
+does not emulate successful window control. Stage 6 provides process launch and
+the `none` backend. KDE Wayland window operations arrive in Stage 7, with X11
+remaining an optional later fallback.
 
 ## Command line
 

@@ -74,12 +74,14 @@ impl Default for TrayConfig {
 #[serde(default, deny_unknown_fields)]
 pub struct ThunderbirdConfig {
     pub command: String,
+    pub arguments: Vec<String>,
 }
 
 impl Default for ThunderbirdConfig {
     fn default() -> Self {
         Self {
             command: "thunderbird".to_owned(),
+            arguments: Vec::new(),
         }
     }
 }

@@ -224,7 +224,7 @@ mod tests {
             MenuItem::Standard(item) => item,
             _ => panic!("Open Thunderbird must be a standard item"),
         };
-        assert!(!open.enabled);
+        assert!(open.enabled);
 
         let status = match menu.remove(0) {
             MenuItem::Standard(item) => item,

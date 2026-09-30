@@ -11,6 +11,7 @@ pub mod lifecycle;
 pub mod sni;
 pub mod tray;
 mod tray_icons;
+pub mod window;
 
 use std::io::{Read, Write};
 

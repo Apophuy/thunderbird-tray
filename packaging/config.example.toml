@@ -11,6 +11,7 @@ hide_when_zero = false
 
 [thunderbird]
 command = "thunderbird"
+arguments = []
 
 [window]
 backend = "auto"

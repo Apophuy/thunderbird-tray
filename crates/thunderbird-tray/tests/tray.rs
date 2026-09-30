@@ -179,7 +179,7 @@ fn english_snapshots_cover_every_state_and_menu_action() {
             english: "_English",
             russian: "_Русский",
             quit: "_Quit",
-            can_open: false,
+            can_open: true,
             can_refresh: false,
         }
     );
@@ -196,7 +196,7 @@ fn english_snapshots_cover_every_state_and_menu_action() {
             english: "_English",
             russian: "_Русский",
             quit: "_Quit",
-            can_open: false,
+            can_open: true,
             can_refresh: true,
         }
     );
@@ -213,7 +213,7 @@ fn english_snapshots_cover_every_state_and_menu_action() {
             english: "_English",
             russian: "_Русский",
             quit: "_Quit",
-            can_open: false,
+            can_open: true,
             can_refresh: true,
         }
     );
@@ -234,7 +234,7 @@ fn russian_snapshots_cover_every_state_and_menu_action() {
             english: "_English",
             russian: "_Русский",
             quit: "_Выйти",
-            can_open: false,
+            can_open: true,
             can_refresh: false,
         }
     );
@@ -251,7 +251,7 @@ fn russian_snapshots_cover_every_state_and_menu_action() {
             english: "_English",
             russian: "_Русский",
             quit: "_Выйти",
-            can_open: false,
+            can_open: true,
             can_refresh: true,
         }
     );
@@ -268,7 +268,7 @@ fn russian_snapshots_cover_every_state_and_menu_action() {
             english: "_English",
             russian: "_Русский",
             quit: "_Выйти",
-            can_open: false,
+            can_open: true,
             can_refresh: true,
         }
     );
