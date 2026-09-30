@@ -2,6 +2,12 @@
 
 //! Native host application boundary.
 
+pub mod cli;
+pub mod config;
+pub mod core;
+pub mod doctor;
+pub mod i18n;
+
 use std::io::{Read, Write};
 
 use thiserror::Error;
@@ -10,6 +16,8 @@ use thunderbird_tray_protocol::{
     DecodeError, DecodeOutcome, HelloAckPayload, Message, decode, encode,
 };
 use tracing::{info, warn};
+
+use crate::core::{AccountState, AppEvent, AppState, ConnectionState, StateError};
 
 /// Failure while serving one Thunderbird Native Messaging connection.
 #[derive(Debug, Error)]
@@ -23,6 +31,9 @@ pub enum HostError {
     /// A host response could not be serialized.
     #[error("could not serialize native host response: {0}")]
     Encode(#[from] serde_json::Error),
+    /// An incoming snapshot was inconsistent with core application state.
+    #[error(transparent)]
+    State(#[from] StateError),
 }
 
 /// Serves framed protocol messages until the peer closes its input stream.
@@ -31,7 +42,8 @@ pub enum HostError {
 /// `tracing`, whose binary-level subscriber is explicitly configured for
 /// stderr.
 pub fn run_host(input: &mut impl Read, output: &mut impl Write) -> Result<(), HostError> {
-    let mut handshake_complete = false;
+    let mut state = AppState::default();
+    state.apply(AppEvent::ConnectionStarted)?;
 
     while let Some(frame) = read_frame(input)? {
         match decode(&frame)? {
@@ -39,7 +51,7 @@ pub fn run_host(input: &mut impl Read, output: &mut impl Write) -> Result<(), Ho
                 warn!(message_type, "ignoring unknown protocol message type");
             }
             DecodeOutcome::Message(Message::Hello(_)) => {
-                handshake_complete = true;
+                state.apply(AppEvent::Connected)?;
                 write_message(
                     output,
                     &Message::HelloAck(HelloAckPayload {
@@ -48,10 +60,24 @@ pub fn run_host(input: &mut impl Read, output: &mut impl Write) -> Result<(), Ho
                 )?;
                 info!("native messaging handshake completed");
             }
-            DecodeOutcome::Message(Message::FullState(state)) if handshake_complete => {
+            DecodeOutcome::Message(Message::FullState(snapshot))
+                if state.connection() == ConnectionState::Connected =>
+            {
+                state.apply(AppEvent::FullState {
+                    total_unread: snapshot.total_unread,
+                    accounts: snapshot
+                        .accounts
+                        .into_iter()
+                        .map(|account| AccountState {
+                            id: account.id,
+                            name: account.name,
+                            unread: account.unread,
+                        })
+                        .collect(),
+                })?;
                 info!(
-                    total_unread = state.total_unread,
-                    account_count = state.accounts.len(),
+                    total_unread = state.thunderbird().total_unread(),
+                    account_count = state.thunderbird().accounts().len(),
                     "received Thunderbird Inbox unread state"
                 );
             }
@@ -66,6 +92,8 @@ pub fn run_host(input: &mut impl Read, output: &mut impl Write) -> Result<(), Ho
             }
         }
     }
+
+    state.apply(AppEvent::Disconnected)?;
 
     Ok(())
 }

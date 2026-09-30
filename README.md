@@ -37,7 +37,21 @@ npm --prefix extension run build
 
 See [the development guide](docs/development.md) for details and
 [the architecture overview](docs/architecture.md) for component boundaries and
-the current identifier status. Development setup does not require root access.
+the current identifier status. Configuration and CLI options are documented in
+[the configuration guide](docs/configuration.md). Development setup does not
+require root access.
+
+## Configuration
+
+The default path is
+`$XDG_CONFIG_HOME/thunderbird-tray/config.toml`, falling back to
+`~/.config/thunderbird-tray/config.toml`. English and Russian are supported;
+`language = "auto"` selects Russian for a Russian system locale and English
+otherwise. See [`packaging/config.example.toml`](packaging/config.example.toml)
+for all initial options.
+
+Run `thunderbird-tray doctor` for a localized, privacy-preserving summary of the
+effective configuration. Use `thunderbird-tray --help` for CLI options.
 
 ## Privacy
 

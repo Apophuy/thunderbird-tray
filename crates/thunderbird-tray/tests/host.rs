@@ -5,7 +5,8 @@ use std::io::Cursor;
 use thunderbird_tray::run_host;
 use thunderbird_tray_native_messaging::{read_frame, write_frame};
 use thunderbird_tray_protocol::{
-    DecodeOutcome, FullStatePayload, HelloAckPayload, HelloPayload, Message, decode, encode,
+    AccountState, DecodeOutcome, FullStatePayload, HelloAckPayload, HelloPayload, Message, decode,
+    encode,
 };
 
 fn input_stream(messages: &[Message]) -> Vec<u8> {
@@ -25,7 +26,11 @@ fn fake_extension_completes_handshake_and_sends_initial_state() {
         }),
         Message::FullState(FullStatePayload {
             total_unread: 3,
-            accounts: Vec::new(),
+            accounts: vec![AccountState {
+                id: "account1".into(),
+                name: "Personal".into(),
+                unread: 3,
+            }],
         }),
     ]);
     let mut output = Vec::new();

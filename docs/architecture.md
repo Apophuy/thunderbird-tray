@@ -18,16 +18,20 @@ servers directly.
 The versioned wire contract and framing rules are documented in
 [`protocol.md`](protocol.md).
 
-## Initial workspace
+## Workspace boundaries
 
-Stage 0 creates only the crates required by the first vertical slice:
+The initial workspace keeps the boundaries required by the Native Messaging
+vertical slice:
 
 - `thunderbird-tray`: executable and future native-host entry point;
 - `thunderbird-tray-protocol`: typed, versioned JSON messages;
 - `thunderbird-tray-native-messaging`: length framing and stream transport.
 
-Tray, core-state, configuration, and window-backend crates will be introduced
-only when their stages need them.
+The application crate now contains transport-independent `core`, `config`,
+`cli`, `doctor`, and `i18n` modules. They remain free of Thunderbird, D-Bus,
+KDE, and Wayland APIs. A separate crate is introduced only when a boundary has
+independent consumers or dependencies; Stage 3 does not split small modules
+into speculative crates.
 
 ## Toolchain decision
 
@@ -38,6 +42,12 @@ minimum. CI runs the declared toolchain so the claim remains tested.
 
 The extension requires Node.js 22.13 or newer and uses locked npm dependencies.
 It emits readable ES modules rather than bundled or minified output.
+
+Stage 3 adds `toml` 1.1.6 as the only configuration dependency. That release
+declares Rust 1.85 as its minimum and keeps the workspace MSRV unchanged. The
+small fixed CLI surface is parsed in the application crate instead of adding a
+general CLI framework; its parser also distinguishes Mozilla's two Native
+Messaging launch arguments from user commands.
 
 ## Identifiers
 
@@ -51,10 +61,15 @@ of duplicating identifiers in source files.
 ## Localization and tray UX
 
 English and Russian are the supported user-interface languages. English is the
-source language and fallback. A future `auto` language mode resolves Russian
-for Russian system locales and English otherwise; explicit `en` and `ru`
-overrides are persisted. Protocol values and structured logs stay
-language-neutral.
+source language and fallback. The `auto` language mode resolves Russian for
+Russian system locales and English otherwise; explicit `en` and `ru` overrides
+are persisted through the configuration boundary. Protocol values and
+structured logs stay language-neutral.
+
+Configuration discovery follows XDG rules, defaults safely when the implicit
+file is absent, and treats an invalid or missing explicit file as fatal. Unknown
+keys are rejected. See [`configuration.md`](configuration.md) for the schema,
+CLI, and privacy-preserving `doctor` output.
 
 The StatusNotifierItem icon, tooltip, and native DBusMenu are the MVP GUI.
 Plasma owns the menu chrome, so the application focuses on a coherent icon
