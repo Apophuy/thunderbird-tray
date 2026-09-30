@@ -1,0 +1,8 @@
+{
+  "protocol": 1,
+  "type": "hello",
+  "payload": {
+    "extensionVersion": "0.1.0",
+    "thunderbirdVersion": "156.0.1"
+  }
+}

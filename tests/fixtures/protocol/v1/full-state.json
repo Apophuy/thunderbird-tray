@@ -1,0 +1,19 @@
+{
+  "protocol": 1,
+  "type": "fullState",
+  "payload": {
+    "totalUnread": 12,
+    "accounts": [
+      {
+        "id": "account1",
+        "name": "Personal",
+        "unread": 7
+      },
+      {
+        "id": "account2",
+        "name": "Work",
+        "unread": 5
+      }
+    ]
+  }
+}

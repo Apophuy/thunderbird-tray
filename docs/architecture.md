@@ -15,6 +15,9 @@ reserved for framed protocol data; diagnostics must use stderr or structured
 logging. No component reads Thunderbird profile databases or connects to mail
 servers directly.
 
+The versioned wire contract and framing rules are documented in
+[`protocol.md`](protocol.md).
+
 ## Initial workspace
 
 Stage 0 creates only the crates required by the first vertical slice:

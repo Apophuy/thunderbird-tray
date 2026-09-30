@@ -1,0 +1,7 @@
+{
+  "protocol": 1,
+  "type": "helloAck",
+  "payload": {
+    "hostVersion": "0.1.0"
+  }
+}
