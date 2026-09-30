@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
+[package]
+name = "thunderbird-tray-protocol"
+description = "Wire protocol shared by thunderbird-tray components"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

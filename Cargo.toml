@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
+[workspace]
+members = [
+    "crates/thunderbird-tray",
+    "crates/thunderbird-tray-native-messaging",
+    "crates/thunderbird-tray-protocol",
+]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "GPL-3.0-only"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+unimplemented = "deny"

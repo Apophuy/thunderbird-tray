@@ -1,0 +1,36 @@
+# Local agent configuration (intentionally never committed)
+.agents/
+.codex/
+AGENTS.md
+AGENTS.override.md
+PLAN.md
+.mcp.json
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.cursor/
+.github/copilot-instructions.md
+.github/instructions/
+
+# Rust
+/target/
+**/*.rs.bk
+
+# Thunderbird WebExtension / Node.js
+/extension/node_modules/
+/extension/dist/
+/extension/*.xpi
+npm-debug.log*
+
+# Local configuration and generated installation artifacts
+/.env
+/.env.*
+!/.env.example
+/packaging/native-messaging/generated/
+
+# Editors and operating systems
+/.idea/
+/.vscode/
+.DS_Store
+*.swp
+*~

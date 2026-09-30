@@ -1,0 +1,22 @@
+{
+  "name": "thunderbird-tray-extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Thunderbird WebExtension for thunderbird-tray",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "lint": "eslint src",
+    "test": "node --test",
+    "typecheck": "tsc --project tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "eslint": "10.11.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.0"
+  }
+}

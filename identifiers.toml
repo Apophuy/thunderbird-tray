@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Canonical identifier registry. These templates are intentionally not runtime values.
+
+product_name = "thunderbird-tray"
+application_id_template = "io.github.<owner>.thunderbird-tray"
+native_host_name_template = "io.github.<owner>.thunderbird_tray"
+extension_id = "<unresolved>"
