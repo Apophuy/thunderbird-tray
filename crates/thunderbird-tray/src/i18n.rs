@@ -101,13 +101,13 @@ impl Localizer {
         match self.language {
             Language::English => {
                 "thunderbird-tray — Linux tray companion for Thunderbird\n\n\
-Usage: thunderbird-tray [OPTIONS] [doctor|install-native-manifest|uninstall-native-manifest]\n\n\
+Usage: thunderbird-tray [OPTIONS] [doctor|settings|install-native-manifest|uninstall-native-manifest]\n\n\
 Options:\n  --config <PATH>\n  --window-backend <auto|kde-wayland|x11|none>\n  \
 --log-level <trace|debug|info|warn|error>\n  -h, --help\n  -V, --version\n"
             }
             Language::Russian => {
                 "thunderbird-tray — дополнение Thunderbird для системного трея Linux\n\n\
-Использование: thunderbird-tray [ПАРАМЕТРЫ] [doctor|install-native-manifest|uninstall-native-manifest]\n\n\
+Использование: thunderbird-tray [ПАРАМЕТРЫ] [doctor|settings|install-native-manifest|uninstall-native-manifest]\n\n\
 Параметры:\n  --config <ПУТЬ>\n  --window-backend <auto|kde-wayland|x11|none>\n  \
 --log-level <trace|debug|info|warn|error>\n  -h, --help\n  -V, --version\n"
             }
@@ -318,6 +318,8 @@ Options:\n  --config <PATH>\n  --window-backend <auto|kde-wayland|x11|none>\n  \
                 title: "thunderbird-tray",
                 inbox_status,
                 open_thunderbird: "_Open Thunderbird",
+                hide_thunderbird: "_Hide Thunderbird to tray",
+                settings: "_Settings…",
                 refresh: "_Refresh Inbox status",
                 language: "_Language",
                 automatic: "_Automatic",
@@ -329,6 +331,8 @@ Options:\n  --config <PATH>\n  --window-backend <auto|kde-wayland|x11|none>\n  \
                 title: "thunderbird-tray",
                 inbox_status,
                 open_thunderbird: "_Открыть Thunderbird",
+                hide_thunderbird: "_Скрыть Thunderbird в трей",
+                settings: "_Настройки…",
                 refresh: "_Обновить состояние Входящих",
                 language: "_Язык",
                 automatic: "_Автоматически",
@@ -482,6 +486,8 @@ pub struct TrayLabels {
     pub title: &'static str,
     pub inbox_status: String,
     pub open_thunderbird: &'static str,
+    pub hide_thunderbird: &'static str,
+    pub settings: &'static str,
     pub refresh: &'static str,
     pub language: &'static str,
     pub automatic: &'static str,

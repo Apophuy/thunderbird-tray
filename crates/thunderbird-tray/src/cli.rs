@@ -16,6 +16,7 @@ pub enum Command {
     #[default]
     Run,
     Doctor,
+    Settings,
     Help,
     Version,
     InstallNativeManifest,
@@ -121,6 +122,7 @@ impl Cli {
                 Some("--version" | "-V") => set_command(&mut cli, Command::Version)?,
                 Some("--service") => set_command(&mut cli, Command::Service)?,
                 Some("doctor") => set_command(&mut cli, Command::Doctor)?,
+                Some("settings") => set_command(&mut cli, Command::Settings)?,
                 Some("install-native-manifest") => {
                     set_command(&mut cli, Command::InstallNativeManifest)?
                 }

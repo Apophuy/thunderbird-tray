@@ -5,7 +5,9 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use thunderbird_tray::config::{Config, ConfigError, ConfigSource, LanguageMode, WindowBackend};
+use thunderbird_tray::config::{
+    Config, ConfigError, ConfigSource, LanguageMode, ThemeMode, WindowBackend,
+};
 
 static NEXT_TEMPORARY_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 
@@ -21,8 +23,10 @@ fn temporary_directory() -> PathBuf {
 fn defaults_are_sane_and_stable() {
     let config = Config::default();
     assert!(!config.general.start_thunderbird);
+    assert!(!config.general.start_minimized);
     assert!(config.general.notifications);
     assert_eq!(config.general.language, LanguageMode::Auto);
+    assert_eq!(config.general.theme, ThemeMode::System);
     assert!(config.tray.show_unread_count);
     assert!(!config.tray.hide_when_zero);
     assert_eq!(config.thunderbird.command, "thunderbird");
@@ -76,6 +80,7 @@ fn partial_config_uses_defaults_and_parses_supported_values() {
         r#"
 [general]
 language = "ru"
+theme = "dark"
 
 [thunderbird]
 command = "/opt/thunderbird/thunderbird"
@@ -89,6 +94,7 @@ backend = "kde-wayland"
     let source = ConfigSource::from_environment(Some(path), None, None).unwrap();
     let config = source.load().unwrap();
     assert_eq!(config.general.language, LanguageMode::Ru);
+    assert_eq!(config.general.theme, ThemeMode::Dark);
     assert!(config.general.notifications);
     assert_eq!(config.window.backend, WindowBackend::KdeWayland);
     assert_eq!(config.thunderbird.command, "/opt/thunderbird/thunderbird");
@@ -102,6 +108,7 @@ fn unknown_keys_and_backend_names_are_rejected() {
         "unexpected = true\n",
         "[window]\nbackend = \"magic\"\n",
         "[tray]\nunknown = true\n",
+        "[general]\ntheme = \"midnight\"\n",
     ] {
         let directory = temporary_directory();
         fs::create_dir_all(&directory).unwrap();
@@ -123,5 +130,23 @@ fn language_override_is_persisted_and_loaded() {
     source.save(&config).unwrap();
 
     assert_eq!(source.load().unwrap().general.language, LanguageMode::Ru);
+    fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn appearance_and_startup_preferences_are_persisted_and_loaded() {
+    let directory = temporary_directory();
+    let path = directory.join("config.toml");
+    let source = ConfigSource::from_environment(Some(path), None, None).unwrap();
+    let mut config = Config::default();
+    config.general.start_thunderbird = true;
+    config.general.start_minimized = true;
+    config.general.theme = ThemeMode::Light;
+    source.save(&config).unwrap();
+
+    let loaded = source.load().unwrap();
+    assert!(loaded.general.start_thunderbird);
+    assert!(loaded.general.start_minimized);
+    assert_eq!(loaded.general.theme, ThemeMode::Light);
     fs::remove_dir_all(directory).unwrap();
 }

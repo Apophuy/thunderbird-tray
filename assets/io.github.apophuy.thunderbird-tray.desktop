@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=thunderbird-tray
+GenericName=Thunderbird Tray Companion
+GenericName[ru]=Компаньон Thunderbird для системного лотка
+Comment=Configure the Thunderbird tray companion
+Comment[ru]=Настройка компаньона Thunderbird для системного лотка
+Exec=thunderbird-tray settings
+TryExec=thunderbird-tray
+Icon=io.github.apophuy.thunderbird-tray
+Terminal=false
+Categories=Network;Email;
+StartupNotify=true

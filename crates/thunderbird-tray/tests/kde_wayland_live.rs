@@ -15,7 +15,8 @@ use thunderbird_tray::window::{ActivationOutcome, DesktopEnvironment, WindowCont
 fn controls_a_real_thunderbird_window_without_x11() {
     let (attached_tx, _attached_rx) = mpsc::channel();
     let (report_tx, report_rx) = mpsc::channel();
-    let _lifecycle = LifecycleService::claim(attached_tx, report_tx)
+    let (configuration_tx, _configuration_rx) = mpsc::channel();
+    let _lifecycle = LifecycleService::claim(attached_tx, report_tx, configuration_tx)
         .expect("the test must be the only thunderbird-tray process");
     let backend = KdeWindowControl::connect(&DesktopEnvironment::from_process(), report_rx)
         .expect("the KWin runtime probe must complete")

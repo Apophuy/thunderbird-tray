@@ -19,11 +19,13 @@ use thunderbird_tray::lifecycle::{
     AttachedNativeStream, ClaimError, LifecycleClient, LifecycleService, WindowActionReport,
 };
 use thunderbird_tray::native_manifest;
+use thunderbird_tray::settings;
 use thunderbird_tray::sni::SniService;
 use thunderbird_tray::tray::{TrayAction, TrayModel};
 use thunderbird_tray::window::{
-    BackendAvailability, DesktopEnvironment, OpenOutcome, ProcessLauncher,
-    UnsupportedWindowControl, WindowControl, open_thunderbird, reap_children, select_backend,
+    BackendAvailability, DesktopEnvironment, OpenOutcome, ProcessLauncher, ThunderbirdLauncher,
+    UnsupportedWindowControl, WindowCapabilities, WindowControl, open_thunderbird, reap_children,
+    select_backend,
 };
 use thunderbird_tray::x11::X11WindowControl;
 use thunderbird_tray::{HostError, run_host, run_host_with_callbacks, write_message};
@@ -60,7 +62,7 @@ fn main() -> Result<()> {
                 .map_err(|error| anyhow!(system_localizer.native_manifest_error(&error)))?;
             return write_output(&system_localizer.native_manifest_removed(&path, removed));
         }
-        Command::Run | Command::Doctor | Command::Service => {}
+        Command::Run | Command::Doctor | Command::Settings | Command::Service => {}
     }
     if cli.command == Command::Service
         && std::env::var_os(DETACH_SERVICE_ENVIRONMENT).as_deref()
@@ -83,6 +85,9 @@ fn main() -> Result<()> {
             DoctorReport::collect(config_source.path(), &config, cli.window_backend, language);
         return write_output(&report.render(localizer));
     }
+    if cli.command == Command::Settings {
+        return settings::run(config_source, config, language).map_err(Into::into);
+    }
 
     tracing_subscriber::fmt()
         .with_writer(io::stderr)
@@ -99,7 +104,8 @@ fn main() -> Result<()> {
     let background_service = cli.command == Command::Service;
     let (attached_tx, attached_rx) = mpsc::channel();
     let (window_report_tx, window_report_rx) = mpsc::channel();
-    let lifecycle = match LifecycleService::claim(attached_tx, window_report_tx) {
+    let (configuration_tx, configuration_rx) = mpsc::channel();
+    let lifecycle = match LifecycleService::claim(attached_tx, window_report_tx, configuration_tx) {
         Ok(service) => service,
         Err(ClaimError::AlreadyRunning) if background_service => return Ok(()),
         Err(ClaimError::AlreadyRunning) => return Err(anyhow!(localizer.already_running())),
@@ -110,10 +116,14 @@ fn main() -> Result<()> {
         config_source,
         config,
         locale_environment,
-        lifecycle,
-        attached_rx,
-        window_report_rx,
-        requested_window_backend,
+        ApplicationContext {
+            lifecycle,
+            attached_rx,
+            window_report_rx,
+            configuration_rx,
+            requested_window_backend,
+            background_service,
+        },
     )
 }
 
@@ -195,6 +205,36 @@ struct ActiveSession {
     _completion_guard: std::os::unix::net::UnixStream,
 }
 
+struct ApplicationContext {
+    lifecycle: LifecycleService,
+    attached_rx: mpsc::Receiver<AttachedNativeStream>,
+    window_report_rx: mpsc::Receiver<WindowActionReport>,
+    configuration_rx: mpsc::Receiver<()>,
+    requested_window_backend: WindowBackend,
+    background_service: bool,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum StartupBehavior {
+    Disabled,
+    Open,
+    OpenHidden,
+}
+
+fn startup_behavior(
+    background_service: bool,
+    config: &Config,
+    capabilities: WindowCapabilities,
+) -> StartupBehavior {
+    if !background_service || !config.general.start_thunderbird {
+        StartupBehavior::Disabled
+    } else if config.general.start_minimized && capabilities.detect && capabilities.hide {
+        StartupBehavior::OpenHidden
+    } else {
+        StartupBehavior::Open
+    }
+}
+
 fn start_host_session(
     stream: AttachedNativeStream,
     session_id: u64,
@@ -249,11 +289,16 @@ fn run_application(
     config_source: ConfigSource,
     mut config: Config,
     locale_environment: LocaleEnvironment,
-    lifecycle: LifecycleService,
-    attached_rx: mpsc::Receiver<AttachedNativeStream>,
-    window_report_rx: mpsc::Receiver<WindowActionReport>,
-    requested_window_backend: WindowBackend,
+    context: ApplicationContext,
 ) -> Result<()> {
+    let ApplicationContext {
+        lifecycle,
+        attached_rx,
+        window_report_rx,
+        configuration_rx,
+        requested_window_backend,
+        background_service,
+    } = context;
     let desktop_environment = DesktopEnvironment::from_process();
     let kde_window_control = match KdeWindowControl::connect(&desktop_environment, window_report_rx)
     {
@@ -296,11 +341,15 @@ fn run_application(
     let mut launcher_children = Vec::new();
 
     let automatic_language = resolve_language(LanguageMode::Auto, &locale_environment);
-    let model = TrayModel::new(
+    let mut model = TrayModel::new(
         TrayState::Disconnected,
         config.tray,
         config.general.language,
         automatic_language,
+    );
+    model.set_can_hide_thunderbird(
+        backend_selection.selected == WindowBackend::KdeWayland
+            && window_control.capabilities().hide,
     );
     let (tray_action_tx, tray_action_rx) = mpsc::channel();
     let tray = match SniService::spawn(model, tray_action_tx) {
@@ -315,6 +364,55 @@ fn run_application(
     let mut next_session_id = 1_u64;
     let mut active_session: Option<ActiveSession> = None;
     let mut current_state = TrayState::Disconnected;
+    let mut startup_hide_pending = false;
+
+    match startup_behavior(background_service, &config, window_control.capabilities()) {
+        StartupBehavior::Disabled => {}
+        StartupBehavior::OpenHidden => match window_control.detect() {
+            Ok(true) => match window_control.hide() {
+                Ok(()) => info!("hid the existing Thunderbird window for session startup"),
+                Err(source) => {
+                    error!(error = %source, "could not hide Thunderbird for session startup")
+                }
+            },
+            Ok(false) => match launcher.launch(&config.thunderbird) {
+                Ok(child) => {
+                    info!(
+                        pid = child.id(),
+                        "started Thunderbird for the login session"
+                    );
+                    startup_hide_pending = true;
+                    launcher_children.push(child);
+                }
+                Err(source) => {
+                    error!(error = %source, "could not start Thunderbird for the login session")
+                }
+            },
+            Err(source) => {
+                error!(error = %source, "could not detect Thunderbird for session startup")
+            }
+        },
+        StartupBehavior::Open => {
+            match open_thunderbird(window_control.as_ref(), &launcher, &config.thunderbird) {
+                Ok(OpenOutcome::ActivatedExisting) => {
+                    info!("activated Thunderbird for the login session")
+                }
+                Ok(OpenOutcome::Launched(child)) => {
+                    info!(
+                        pid = child.id(),
+                        "started Thunderbird for the login session"
+                    );
+                    if config.general.start_minimized {
+                        warn!("start minimized is unavailable with the selected window backend");
+                    }
+                    launcher_children.push(child);
+                }
+                Err(source) => {
+                    error!(error = %source, "could not start Thunderbird for the login session")
+                }
+            }
+        }
+    }
 
     loop {
         reap_children(&mut launcher_children);
@@ -340,6 +438,17 @@ fn run_application(
                     .is_some_and(|session| session.id == session_id) =>
             {
                 current_state = state;
+                if startup_hide_pending {
+                    match window_control.hide() {
+                        Ok(()) => {
+                            startup_hide_pending = false;
+                            info!("hid the startup Thunderbird window in the tray");
+                        }
+                        Err(source) => {
+                            warn!(error = %source, "could not yet hide the startup Thunderbird window");
+                        }
+                    }
+                }
                 if let Some(tray) = &tray {
                     if !tray.set_state(state) {
                         warn!("StatusNotifierItem service closed while updating state");
@@ -405,6 +514,28 @@ fn run_application(
                         }
                     }
                 }
+                TrayAction::HideThunderbird => {
+                    if let Err(source) = window_control.hide() {
+                        error!(error = %source, "could not hide Thunderbird to tray");
+                    } else {
+                        info!("hid Thunderbird window from the KDE task manager");
+                    }
+                }
+                TrayAction::OpenSettings => {
+                    match std::env::current_exe().and_then(|executable| {
+                        ProcessCommand::new(executable)
+                            .arg("settings")
+                            .arg("--config")
+                            .arg(config_source.path())
+                            .stdin(Stdio::null())
+                            .stdout(Stdio::null())
+                            .stderr(Stdio::inherit())
+                            .spawn()
+                    }) {
+                        Ok(child) => launcher_children.push(child),
+                        Err(source) => error!(error = %source, "could not open settings window"),
+                    }
+                }
                 TrayAction::Refresh => {
                     if current_state != TrayState::Disconnected {
                         if let Some(session) = &active_session {
@@ -440,6 +571,19 @@ fn run_application(
                 }
             }
         }
+
+        while configuration_rx.try_recv().is_ok() {
+            match config_source.load() {
+                Ok(updated) => {
+                    config = updated;
+                    if let Some(tray) = &tray {
+                        let _ = tray.set_configuration(config.tray, config.general.language);
+                    }
+                    info!("reloaded application settings");
+                }
+                Err(source) => error!(error = %source, "could not reload application settings"),
+            }
+        }
     }
 }
 
@@ -448,4 +592,43 @@ fn write_output(contents: &str) -> Result<()> {
         .lock()
         .write_all(contents.as_bytes())
         .map_err(|error| anyhow!("could not write command output: {error}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn startup_is_opt_in_and_only_hides_with_required_capabilities() {
+        let mut config = Config::default();
+        let capable = WindowCapabilities {
+            detect: true,
+            hide: true,
+            ..WindowCapabilities::default()
+        };
+
+        assert_eq!(
+            startup_behavior(true, &config, capable),
+            StartupBehavior::Disabled
+        );
+        config.general.start_thunderbird = true;
+        assert_eq!(
+            startup_behavior(false, &config, capable),
+            StartupBehavior::Disabled
+        );
+        assert_eq!(
+            startup_behavior(true, &config, capable),
+            StartupBehavior::Open
+        );
+
+        config.general.start_minimized = true;
+        assert_eq!(
+            startup_behavior(true, &config, WindowCapabilities::default()),
+            StartupBehavior::Open
+        );
+        assert_eq!(
+            startup_behavior(true, &config, capable),
+            StartupBehavior::OpenHidden
+        );
+    }
 }

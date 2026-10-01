@@ -35,13 +35,15 @@ Verify the release directory and install the package:
 
 ```sh
 sha256sum -c SHA256SUMS
-sudo apt install ./thunderbird-tray_0.1.1_amd64.deb
+sudo apt install ./thunderbird-tray_0.1.2_amd64.deb
 ```
 
 The package installs:
 
 - the application below `/opt/thunderbird-tray`;
 - `/usr/bin/thunderbird-tray` as a package-owned command link;
+- an application-menu launcher and hicolor icons using the common amber
+  application/extension artwork;
 - the global Mozilla Native Messaging manifest below
   `/usr/lib/mozilla/native-messaging-hosts`.
 
@@ -75,8 +77,9 @@ is user data rather than a package-owned file.
 ## Portable rootless fallback
 
 Extract the `tar.xz` bundle and run `./install.sh`. It installs the binary to
-`~/.local/bin`, application data below `$XDG_DATA_HOME/thunderbird-tray`, and a
-per-user Native Messaging manifest below `~/.mozilla/native-messaging-hosts`.
+`~/.local/bin`, application data, the application-menu launcher and hicolor
+icons below `$XDG_DATA_HOME`, and a per-user Native Messaging manifest below
+`~/.mozilla/native-messaging-hosts`.
 Set `THUNDERBIRD_TRAY_PREFIX` to change the binary prefix. Run the bundle's
 `./uninstall.sh` to remove those installed files while retaining configuration.
 
@@ -105,5 +108,6 @@ repository path. No mail content, credentials, Thunderbird profile, or user
 configuration is included.
 
 See [ADR 0006](adr/0006-debian-and-portable-linux-release.md) for the `/opt`,
-Native Messaging, portable fallback, systemd, desktop entry, and autostart
-decisions.
+Native Messaging, portable fallback, and systemd decisions. The desktop entry,
+application artwork, settings window, and opt-in autostart are covered by
+[ADR 0007](adr/0007-settings-and-artwork.md).

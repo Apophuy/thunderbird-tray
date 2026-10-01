@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
@@ -52,5 +52,10 @@ if (result.status !== 0) {
   await writeFile(
     fileURLToPath(new URL("../dist/manifest.json", import.meta.url)),
     `${JSON.stringify(manifest, null, 2)}\n`,
+  );
+  await cp(
+    fileURLToPath(new URL("../icons", import.meta.url)),
+    fileURLToPath(new URL("../dist/icons", import.meta.url)),
+    { recursive: true },
   );
 }

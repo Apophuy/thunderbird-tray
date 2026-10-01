@@ -31,10 +31,11 @@ stable extension ID.
 The package contains the optimized Rust binary, GPL-3.0-only licensing,
 English and Russian readmes, example configuration, and the packaged XPI.
 Users install or update the XPI through Thunderbird's Add-ons Manager; the
-package does not modify a Thunderbird profile. It also does not create a
-systemd unit, desktop launcher, or autostart entry. Thunderbird starts the
-native helper through Native Messaging, which connects to or starts the
-single-instance session service.
+package does not modify a Thunderbird profile. It does not create a systemd
+unit or enable autostart. Thunderbird starts the native helper through Native
+Messaging, which connects to or starts the single-instance session service.
+Stage 10 later adds a package-owned desktop launcher and hicolor icons, plus an
+explicitly user-controlled per-user XDG autostart entry; see ADR 0007.
 
 A versioned `tar.xz` bundle remains a secondary, distro-neutral fallback. Its
 installer defaults to `~/.local/bin` and `$XDG_DATA_HOME/thunderbird-tray` and

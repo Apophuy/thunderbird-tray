@@ -76,13 +76,27 @@ fn connected_states_have_distinct_icons_and_refresh_behavior() {
     let mut model = model(TrayState::NoUnread);
     let zero = model.presentation();
     assert_eq!(zero.icon, TrayIcon::Connected);
+    assert_eq!(zero.unread_count, None);
     assert!(zero.can_refresh);
     assert_eq!(zero.status, IndicatorStatus::Active);
 
     model.set_state(TrayState::Unread(4));
     let unread = model.presentation();
     assert_eq!(unread.icon, TrayIcon::Unread);
+    assert_eq!(unread.unread_count, Some(4));
     assert!(unread.labels.inbox_status.contains("4 unread messages"));
+}
+
+#[test]
+fn hide_action_is_advertised_only_after_a_capable_backend_is_selected() {
+    let mut model = model(TrayState::NoUnread);
+    assert!(!model.presentation().can_hide_thunderbird);
+
+    model.set_can_hide_thunderbird(true);
+    assert!(model.presentation().can_hide_thunderbird);
+
+    model.set_can_hide_thunderbird(false);
+    assert!(!model.presentation().can_hide_thunderbird);
 }
 
 #[test]
@@ -162,6 +176,7 @@ fn hidden_count_keeps_unread_meaning_without_a_number() {
         model.presentation().labels.inbox_status,
         "Unread messages in Inbox"
     );
+    assert_eq!(model.presentation().unread_count, None);
 }
 
 #[test]

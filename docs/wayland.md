@@ -46,9 +46,13 @@ globally, no root permission is needed, and no network socket is opened.
 
 - **Open Thunderbird** activates and restores the topmost existing Thunderbird
   window. If no window exists, it launches the configured Thunderbird command.
-- **Hide** minimizes the selected window only when KWin reports it as
-  minimizable.
-- **Show** restores the selected window and makes it active.
+- **Hide Thunderbird** sets both `skipTaskbar` and `minimized`. The window stays
+  alive for mail monitoring but disappears from KDE's task manager.
+- **Show/Open** clears `skipTaskbar`, restores the selected window, and makes it
+  active.
+- **Start hidden** is opt-in. An autostarted service launches Thunderbird and
+  performs the same hide operation after Native Messaging confirms that its
+  window is ready.
 - Detection is based on `desktopFileName` values `thunderbird` or a path ending
   in `thunderbird.desktop`, with `thunderbird` and `thunderbird-default`
   resource classes as fallbacks.
@@ -58,6 +62,11 @@ globally, no root permission is needed, and no network socket is opened.
 - KWin scripting can be disabled or changed by a distribution. In that case
   mail monitoring and the tray continue normally, while window control is
   reported unavailable and Open Thunderbird falls back to process launch.
+- Thunderbird 156 MV3 and the public KWin 6 scripting API do not provide a
+  supported cancellable pre-close hook. `windows.onRemoved` and KWin's
+  `closed`/`windowRemoved` signals arrive after closure. Consequently the title
+  bar close button cannot truthfully be converted into hide-to-tray by this
+  supported architecture; use the explicit Hide action instead.
 
 ## Troubleshooting
 

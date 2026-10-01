@@ -16,8 +16,10 @@ x11 = ["dep:x11rb"]
 
 [dependencies]
 anyhow.workspace = true
+image.workspace = true
 ksni.workspace = true
 rustix.workspace = true
+slint.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

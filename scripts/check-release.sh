@@ -70,6 +70,8 @@ for required in \
     "$bundle_name/bin/thunderbird-tray" \
     "$bundle_name/install.sh" \
     "$bundle_name/uninstall.sh" \
+    "$bundle_name/share/applications/io.github.apophuy.thunderbird-tray.desktop" \
+    "$bundle_name/share/icons/hicolor/128x128/apps/io.github.apophuy.thunderbird-tray.png" \
     "$bundle_name/share/thunderbird-tray/config.example.toml" \
     "$bundle_name/share/thunderbird-tray/thunderbird-tray.xpi"
 do
@@ -99,6 +101,7 @@ dpkg-deb --extract "$deb" "$deb_root"
 deb_binary=$deb_root/opt/thunderbird-tray/bin/thunderbird-tray
 deb_xpi=$deb_root/opt/thunderbird-tray/share/thunderbird-tray/thunderbird-tray.xpi
 deb_manifest=$deb_root/usr/lib/mozilla/native-messaging-hosts/$native_host_name.json
+deb_icon=$deb_root/usr/share/icons/hicolor/128x128/apps/io.github.apophuy.thunderbird-tray.png
 test -x "$deb_binary"
 "$deb_binary" --version | grep -F -x "thunderbird-tray $version" >/dev/null
 test -f "$deb_xpi"
@@ -106,6 +109,12 @@ cmp "$deb_xpi" "$xpi"
 test -f "$deb_root/opt/thunderbird-tray/LICENSE"
 test -f "$deb_root/usr/share/doc/thunderbird-tray/copyright"
 test -f "$deb_root/usr/share/man/man1/thunderbird-tray.1.gz"
+test -f "$deb_root/usr/share/applications/io.github.apophuy.thunderbird-tray.desktop"
+test -f "$deb_icon"
+unzip -p "$xpi" icons/icon-128.png > "$temporary/extension-icon-128.png"
+cmp "$deb_icon" "$temporary/extension-icon-128.png"
+cmp "$bundle/share/icons/hicolor/128x128/apps/io.github.apophuy.thunderbird-tray.png" \
+    "$temporary/extension-icon-128.png"
 test -L "$deb_root/usr/bin/thunderbird-tray"
 test "$(readlink "$deb_root/usr/bin/thunderbird-tray")" = \
     /opt/thunderbird-tray/bin/thunderbird-tray
@@ -189,6 +198,8 @@ installed_binary=$home/.local/bin/thunderbird-tray
 manifest=$home/.mozilla/native-messaging-hosts/io.github.apophuy.thunderbird_tray.json
 test -x "$installed_binary"
 test -f "$data_home/thunderbird-tray/thunderbird-tray.xpi"
+test -f "$data_home/applications/io.github.apophuy.thunderbird-tray.desktop"
+test -f "$data_home/icons/hicolor/128x128/apps/io.github.apophuy.thunderbird-tray.png"
 test -f "$manifest"
 "$installed_binary" --version | grep -F -x "thunderbird-tray $version" >/dev/null
 node -e '
@@ -205,6 +216,8 @@ HOME=$home XDG_DATA_HOME=$data_home XDG_CONFIG_HOME=$config_home \
 test ! -e "$installed_binary"
 test ! -e "$manifest"
 test ! -e "$data_home/thunderbird-tray"
+test ! -e "$data_home/applications/io.github.apophuy.thunderbird-tray.desktop"
+test ! -e "$data_home/icons/hicolor/128x128/apps/io.github.apophuy.thunderbird-tray.png"
 test -f "$config_home/thunderbird-tray/user.toml"
 
 echo "Release artifacts passed Debian, portable, privacy, install, and uninstall checks."

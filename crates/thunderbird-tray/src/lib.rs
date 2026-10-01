@@ -2,6 +2,7 @@
 
 //! Native host application boundary.
 
+pub mod autostart;
 pub mod cli;
 pub mod config;
 pub mod core;
@@ -10,6 +11,7 @@ pub mod i18n;
 pub mod kde_wayland;
 pub mod lifecycle;
 pub mod native_manifest;
+pub mod settings;
 pub mod sni;
 pub mod tray;
 mod tray_icons;

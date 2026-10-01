@@ -9,14 +9,14 @@ members = [
 resolver = "3"
 
 [workspace.package]
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 rust-version = "1.85"
 license = "GPL-3.0-only"
 publish = false
 
 [workspace.lints.rust]
-unsafe_code = "forbid"
+unsafe_code = "deny"
 
 [workspace.lints.clippy]
 dbg_macro = "deny"
@@ -25,7 +25,9 @@ unimplemented = "deny"
 
 [workspace.dependencies]
 anyhow = "1.0.104"
+image = { version = "0.25.9", default-features = false, features = ["png"] }
 ksni = { version = "0.3.6", features = ["blocking"] }
+slint = { version = "=1.13.1", default-features = false, features = ["std", "backend-winit-wayland", "renderer-software", "software-renderer-systemfonts", "compat-1-2"] }
 rustix = { version = "1.1.5", features = ["process"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"

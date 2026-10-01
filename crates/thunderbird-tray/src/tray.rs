@@ -22,9 +22,11 @@ pub enum IndicatorStatus {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TrayPresentation {
     pub icon: TrayIcon,
+    pub unread_count: Option<u32>,
     pub status: IndicatorStatus,
     pub labels: TrayLabels,
     pub can_open_thunderbird: bool,
+    pub can_hide_thunderbird: bool,
     pub can_refresh: bool,
     pub language_mode: LanguageMode,
 }
@@ -32,6 +34,8 @@ pub struct TrayPresentation {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TrayAction {
     OpenThunderbird,
+    HideThunderbird,
+    OpenSettings,
     Refresh,
     SetLanguage(LanguageMode),
     Quit,
@@ -43,6 +47,7 @@ pub struct TrayModel {
     config: TrayConfig,
     language_mode: LanguageMode,
     automatic_language: Language,
+    can_hide_thunderbird: bool,
 }
 
 impl TrayModel {
@@ -57,6 +62,7 @@ impl TrayModel {
             config,
             language_mode,
             automatic_language,
+            can_hide_thunderbird: false,
         }
     }
 
@@ -73,6 +79,15 @@ impl TrayModel {
     }
 
     pub fn set_language_mode(&mut self, language_mode: LanguageMode) {
+        self.language_mode = language_mode;
+    }
+
+    pub fn set_can_hide_thunderbird(&mut self, can_hide: bool) {
+        self.can_hide_thunderbird = can_hide;
+    }
+
+    pub fn set_configuration(&mut self, config: TrayConfig, language_mode: LanguageMode) {
+        self.config = config;
         self.language_mode = language_mode;
     }
 
@@ -95,9 +110,14 @@ impl TrayModel {
 
         TrayPresentation {
             icon,
+            unread_count: match (self.state, self.config.show_unread_count) {
+                (TrayState::Unread(count), true) => Some(count),
+                _ => None,
+            },
             status,
             labels: Localizer::new(language).tray_labels(self.state, self.config.show_unread_count),
             can_open_thunderbird: true,
+            can_hide_thunderbird: self.can_hide_thunderbird,
             can_refresh: self.state != TrayState::Disconnected,
             language_mode: self.language_mode,
         }

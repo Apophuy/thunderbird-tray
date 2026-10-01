@@ -8,7 +8,7 @@ use ksni::blocking::{Handle, TrayMethods};
 use ksni::menu::{RadioGroup, RadioItem, StandardItem, SubMenu};
 use ksni::{Category, MenuItem, Status, ToolTip};
 
-use crate::config::LanguageMode;
+use crate::config::{LanguageMode, TrayConfig};
 use crate::core::TrayState;
 use crate::tray::{IndicatorStatus, TrayAction, TrayModel};
 use crate::tray_icons;
@@ -51,14 +51,15 @@ impl ksni::Tray for SniTray {
     }
 
     fn icon_pixmap(&self) -> Vec<ksni::Icon> {
-        tray_icons::pixmaps(self.model.presentation().icon)
+        let presentation = self.model.presentation();
+        tray_icons::pixmaps(presentation.icon, presentation.unread_count)
     }
 
     fn tool_tip(&self) -> ToolTip {
         let presentation = self.model.presentation();
         ToolTip {
             icon_name: String::new(),
-            icon_pixmap: tray_icons::pixmaps(presentation.icon),
+            icon_pixmap: tray_icons::pixmaps(presentation.icon, presentation.unread_count),
             title: presentation.labels.title.to_owned(),
             description: presentation.labels.inbox_status,
         }
@@ -85,6 +86,16 @@ impl ksni::Tray for SniTray {
             }
             .into(),
             StandardItem {
+                label: labels.hide_thunderbird.to_owned(),
+                enabled: presentation.can_hide_thunderbird,
+                icon_name: "window-minimize".to_owned(),
+                activate: Box::new(|tray: &mut Self| {
+                    tray.enqueue(TrayAction::HideThunderbird);
+                }),
+                ..Default::default()
+            }
+            .into(),
+            StandardItem {
                 label: labels.inbox_status,
                 enabled: false,
                 icon_name: "mail-unread".to_owned(),
@@ -97,6 +108,13 @@ impl ksni::Tray for SniTray {
                 icon_name: "view-refresh".to_owned(),
                 shortcut: vec![vec!["Control".to_owned(), "R".to_owned()]],
                 activate: Box::new(|tray: &mut Self| tray.enqueue(TrayAction::Refresh)),
+                ..Default::default()
+            }
+            .into(),
+            StandardItem {
+                label: labels.settings.to_owned(),
+                icon_name: "preferences-system".to_owned(),
+                activate: Box::new(|tray: &mut Self| tray.enqueue(TrayAction::OpenSettings)),
                 ..Default::default()
             }
             .into(),
@@ -182,6 +200,12 @@ impl SniService {
             .is_some()
     }
 
+    pub fn set_configuration(&self, config: TrayConfig, mode: LanguageMode) -> bool {
+        self.handle
+            .update(move |tray| tray.model.set_configuration(config, mode))
+            .is_some()
+    }
+
     pub fn shutdown(&self) {
         self.handle.shutdown().wait();
     }
@@ -218,13 +242,19 @@ mod tests {
     fn menu_is_native_ordered_and_callbacks_only_enqueue_actions() {
         let (mut tray, receiver) = tray(TrayState::Unread(2));
         let mut menu = ksni::Tray::menu(&tray);
-        assert_eq!(menu.len(), 6);
+        assert_eq!(menu.len(), 8);
 
         let open = match menu.remove(0) {
             MenuItem::Standard(item) => item,
             _ => panic!("Open Thunderbird must be a standard item"),
         };
         assert!(open.enabled);
+
+        let hide = match menu.remove(0) {
+            MenuItem::Standard(item) => item,
+            _ => panic!("Hide Thunderbird must be a standard item"),
+        };
+        assert!(!hide.enabled);
 
         let status = match menu.remove(0) {
             MenuItem::Standard(item) => item,
@@ -252,7 +282,7 @@ mod tests {
     fn language_radio_updates_menu_before_persistence_is_processed() {
         let (mut tray, receiver) = tray(TrayState::NoUnread);
         let mut menu = ksni::Tray::menu(&tray);
-        let language = match menu.remove(3) {
+        let language = match menu.remove(5) {
             MenuItem::SubMenu(item) => item,
             _ => panic!("Language must be a submenu"),
         };
@@ -268,7 +298,7 @@ mod tests {
             receiver.recv().unwrap(),
             TrayAction::SetLanguage(LanguageMode::Ru)
         );
-        assert_eq!(ksni::Tray::menu(&tray)[3].as_submenu_label(), Some("_Язык"));
+        assert_eq!(ksni::Tray::menu(&tray)[5].as_submenu_label(), Some("_Язык"));
     }
 
     #[test]

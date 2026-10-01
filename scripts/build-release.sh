@@ -71,6 +71,8 @@ deb_manifest_directory=$deb_root/usr/lib/mozilla/native-messaging-hosts
 deb_documentation=$deb_root/usr/share/doc/thunderbird-tray
 deb_manpages=$deb_root/usr/share/man/man1
 deb_lintian=$deb_root/usr/share/lintian/overrides
+deb_applications=$deb_root/usr/share/applications
+deb_icons=$deb_root/usr/share/icons/hicolor
 mkdir -p -- \
     "$deb_root/DEBIAN" \
     "$deb_application/bin" \
@@ -79,6 +81,7 @@ mkdir -p -- \
     "$deb_documentation" \
     "$deb_manpages" \
     "$deb_lintian" \
+    "$deb_applications" \
     "$deb_root/usr/bin"
 install -m 0755 -- \
     "$repository_root/target/$target/release/thunderbird-tray" \
@@ -90,6 +93,15 @@ install -m 0644 -- "$repository_root/packaging/config.example.toml" \
 install -m 0644 -- "$repository_root/LICENSE" "$deb_application/LICENSE"
 install -m 0644 -- "$repository_root/README.md" "$deb_application/README.md"
 install -m 0644 -- "$repository_root/README_RU.md" "$deb_application/README_RU.md"
+install -m 0644 -- "$repository_root/assets/io.github.apophuy.thunderbird-tray.desktop" \
+    "$deb_applications/io.github.apophuy.thunderbird-tray.desktop"
+for size in 32 48 64 128 256; do
+    icon_directory=$deb_icons/${size}x${size}/apps
+    mkdir -p -- "$icon_directory"
+    install -m 0644 -- \
+        "$repository_root/assets/hicolor/${size}x${size}/apps/io.github.apophuy.thunderbird-tray.png" \
+        "$icon_directory/io.github.apophuy.thunderbird-tray.png"
+done
 install -m 0644 -- "$repository_root/packaging/debian/copyright" \
     "$deb_documentation/copyright"
 gzip -n -9 --stdout "$repository_root/packaging/debian/thunderbird-tray.1" \
@@ -136,7 +148,7 @@ Homepage: https://github.com/Apophuy/thunderbird-tray
 Package: thunderbird-tray
 Architecture: any
 Description: Thunderbird tray companion
- Toolkit-free Linux tray companion for Thunderbird 156 and newer.
+ Native Linux tray companion for Thunderbird 156 and newer.
 EOF
 shlib_dependencies=$(cd "$temporary" && dpkg-shlibdeps -O \
     -e"$deb_application/bin/thunderbird-tray" | sed -n 's/^shlibs:Depends=//p')
@@ -153,7 +165,7 @@ Homepage: https://github.com/Apophuy/thunderbird-tray
 Depends: $shlib_dependencies
 Installed-Size: $installed_size
 Description: Thunderbird tray companion
- Toolkit-free Linux tray companion for Thunderbird 156 and newer.
+ Native Linux tray companion for Thunderbird 156 and newer.
  Thunderbird provides unread state through a Manifest V3 extension and Native
  Messaging; the Rust application exposes a StatusNotifierItem on Linux.
 EOF
@@ -169,7 +181,11 @@ SOURCE_DATE_EPOCH=$source_date_epoch dpkg-deb --build --root-owner-group \
 
 bundle_name=thunderbird-tray-$version-$target
 bundle=$temporary/$bundle_name
-mkdir -p -- "$bundle/bin" "$bundle/share/thunderbird-tray"
+mkdir -p -- \
+    "$bundle/bin" \
+    "$bundle/share/applications" \
+    "$bundle/share/icons/hicolor" \
+    "$bundle/share/thunderbird-tray"
 install -m 0755 -- \
     "$repository_root/target/$target/release/thunderbird-tray" \
     "$bundle/bin/thunderbird-tray"
@@ -183,6 +199,15 @@ install -m 0644 -- "$repository_root/README_RU.md" "$bundle/README_RU.md"
 install -m 0644 -- "$repository_root/packaging/config.example.toml" \
     "$bundle/share/thunderbird-tray/config.example.toml"
 install -m 0644 -- "$xpi_path" "$bundle/share/thunderbird-tray/thunderbird-tray.xpi"
+install -m 0644 -- "$repository_root/assets/io.github.apophuy.thunderbird-tray.desktop" \
+    "$bundle/share/applications/io.github.apophuy.thunderbird-tray.desktop"
+for size in 32 48 64 128 256; do
+    icon_directory=$bundle/share/icons/hicolor/${size}x${size}/apps
+    mkdir -p -- "$icon_directory"
+    install -m 0644 -- \
+        "$repository_root/assets/hicolor/${size}x${size}/apps/io.github.apophuy.thunderbird-tray.png" \
+        "$icon_directory/io.github.apophuy.thunderbird-tray.png"
+done
 
 tar --sort=name --mtime="@$source_date_epoch" --owner=0 --group=0 \
     --numeric-owner --format=gnu -C "$temporary" -cJf \

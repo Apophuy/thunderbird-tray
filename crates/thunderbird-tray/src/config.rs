@@ -40,16 +40,20 @@ impl Config {
 #[serde(default, deny_unknown_fields)]
 pub struct GeneralConfig {
     pub start_thunderbird: bool,
+    pub start_minimized: bool,
     pub notifications: bool,
     pub language: LanguageMode,
+    pub theme: ThemeMode,
 }
 
 impl Default for GeneralConfig {
     fn default() -> Self {
         Self {
             start_thunderbird: false,
+            start_minimized: false,
             notifications: true,
             language: LanguageMode::Auto,
+            theme: ThemeMode::System,
         }
     }
 }
@@ -146,6 +150,25 @@ impl LanguageMode {
             Self::Auto => "auto",
             Self::En => "en",
             Self::Ru => "ru",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ThemeMode {
+    #[default]
+    System,
+    Light,
+    Dark,
+}
+
+impl ThemeMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::System => "system",
+            Self::Light => "light",
+            Self::Dark => "dark",
         }
     }
 }

@@ -2,8 +2,10 @@
 
 [general]
 start_thunderbird = false
+start_minimized = false
 notifications = true
 language = "auto"
+theme = "system"
 
 [tray]
 show_unread_count = true

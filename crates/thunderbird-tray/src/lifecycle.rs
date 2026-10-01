@@ -34,6 +34,7 @@ pub struct WindowActionReport {
 struct LifecycleInterface {
     attached_streams: Sender<AttachedNativeStream>,
     window_reports: Sender<WindowActionReport>,
+    configuration_changes: Sender<()>,
     session_active: Arc<AtomicBool>,
 }
 
@@ -90,6 +91,14 @@ impl LifecycleInterface {
                 )
             })
     }
+
+    fn configuration_changed(&self) -> zbus::fdo::Result<()> {
+        self.configuration_changes.send(()).map_err(|_| {
+            zbus::fdo::Error::Failed(
+                "the primary thunderbird-tray process is shutting down".to_owned(),
+            )
+        })
+    }
 }
 
 pub struct LifecycleService {
@@ -101,11 +110,13 @@ impl LifecycleService {
     pub fn claim(
         attached_streams: Sender<AttachedNativeStream>,
         window_reports: Sender<WindowActionReport>,
+        configuration_changes: Sender<()>,
     ) -> Result<Self, ClaimError> {
         let session_active = Arc::new(AtomicBool::new(false));
         let interface = LifecycleInterface {
             attached_streams,
             window_reports,
+            configuration_changes,
             session_active: Arc::clone(&session_active),
         };
         let connection = Builder::session()
@@ -184,6 +195,17 @@ impl LifecycleClient {
         }
         Ok(())
     }
+
+    pub fn notify_configuration_changed(&self) -> Result<(), LifecycleError> {
+        let proxy = Proxy::new(
+            &self.connection,
+            APPLICATION_ID,
+            LIFECYCLE_OBJECT_PATH,
+            LIFECYCLE_INTERFACE,
+        )?;
+        let _: () = proxy.call("ConfigurationChanged", &())?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Error)]
@@ -231,10 +253,12 @@ mod tests {
     fn only_one_native_stream_is_accepted_until_the_session_finishes() {
         let (attached_tx, attached_rx) = mpsc::channel();
         let (window_tx, _window_rx) = mpsc::channel();
+        let (configuration_tx, _configuration_rx) = mpsc::channel();
         let session_active = Arc::new(AtomicBool::new(false));
         let interface = LifecycleInterface {
             attached_streams: attached_tx,
             window_reports: window_tx,
+            configuration_changes: configuration_tx,
             session_active: Arc::clone(&session_active),
         };
         assert!(!interface.native_session_active());
@@ -282,9 +306,11 @@ mod tests {
     fn window_action_reports_are_bounded_and_forwarded() {
         let (attached_tx, _attached_rx) = mpsc::channel();
         let (window_tx, window_rx) = mpsc::channel();
+        let (configuration_tx, _configuration_rx) = mpsc::channel();
         let interface = LifecycleInterface {
             attached_streams: attached_tx,
             window_reports: window_tx,
+            configuration_changes: configuration_tx,
             session_active: Arc::new(AtomicBool::new(false)),
         };
 
@@ -309,5 +335,21 @@ mod tests {
                 .report_window_action("123-5".to_owned(), "x".repeat(33))
                 .is_err()
         );
+    }
+
+    #[test]
+    fn configuration_changes_are_forwarded() {
+        let (attached_tx, _attached_rx) = mpsc::channel();
+        let (window_tx, _window_rx) = mpsc::channel();
+        let (configuration_tx, configuration_rx) = mpsc::channel();
+        let interface = LifecycleInterface {
+            attached_streams: attached_tx,
+            window_reports: window_tx,
+            configuration_changes: configuration_tx,
+            session_active: Arc::new(AtomicBool::new(false)),
+        };
+
+        interface.configuration_changed().unwrap();
+        configuration_rx.recv().unwrap();
     }
 }

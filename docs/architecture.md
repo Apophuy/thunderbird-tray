@@ -56,6 +56,14 @@ Stage 8 adds `x11rb` 0.14 behind the opt-in `x11` feature. The dependency uses
 the pure-Rust connection and core protocol only; it is absent from the default
 feature graph and does not add libxcb FFI or an XWayland requirement.
 
+Stage 10 adds pinned Slint 1.13.1 with its native Wayland/software-renderer
+backend for the standalone settings window, plus `image` 0.25.9 for decoding
+the embedded original raster artwork. Slint is GPL-compatible, supports the
+Rust 1.85 MSRV, and does not add Qt or GTK. See
+[`adr/0007-settings-and-artwork.md`](adr/0007-settings-and-artwork.md).
+`Cargo.lock` pins Slint's permissive `fontdue` dependency to 0.9.3 because the
+later 0.9.4 release uses language/library functionality newer than Rust 1.85.
+
 ## Identifiers
 
 [`../identifiers.json`](../identifiers.json) is the canonical registry for the
@@ -78,11 +86,13 @@ file is absent, and treats an invalid or missing explicit file as fatal. Unknown
 keys are rejected. See [`configuration.md`](configuration.md) for the schema,
 CLI, and privacy-preserving `doctor` output.
 
-The StatusNotifierItem icon, tooltip, and native DBusMenu are the MVP GUI.
-Plasma owns the menu chrome, so the application focuses on a coherent icon
-family, unambiguous normal/unread/disconnected states, concise action ordering,
-keyboard-friendly native items, and a visible language selector. A standalone
-settings window requires a later ADR and is not part of the current MVP.
+The StatusNotifierItem icon, tooltip, and native DBusMenu remain the always-on
+surface. Plasma owns the menu chrome, so the application supplies a coherent
+icon family, unambiguous normal/unread/disconnected states, concise native
+actions, and a visible language selector. A separate, normal-sized Slint
+window provides explicit Apply/Cancel settings, per-user autostart controls,
+and system/light/dark appearance modes. It opens from the desktop launcher,
+tray menu, or CLI without becoming a second tray owner.
 
 The StatusNotifierItem adapter runs on its own service thread. A separate
 Native Messaging reader publishes typed state changes, while one dedicated

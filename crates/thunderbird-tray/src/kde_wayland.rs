@@ -347,17 +347,20 @@ fn render_script(action: KdeAction, request_id: &str) -> String {
         if (action === "detect") {{
             outcome = "found";
         }} else if (action === "activate") {{
+            target.skipTaskbar = false;
             target.minimized = false;
             workspace.activeWindow = target;
-            outcome = !target.minimized && workspace.activeWindow === target
+            outcome = !target.skipTaskbar && !target.minimized && workspace.activeWindow === target
                 ? "activated" : "unsupported";
         }} else if (action === "show") {{
+            target.skipTaskbar = false;
             target.minimized = false;
             workspace.activeWindow = target;
-            outcome = !target.minimized ? "shown" : "unsupported";
+            outcome = !target.skipTaskbar && !target.minimized ? "shown" : "unsupported";
         }} else if (action === "hide" && target.minimizable) {{
+            target.skipTaskbar = true;
             target.minimized = true;
-            outcome = target.minimized ? "hidden" : "unsupported";
+            outcome = target.skipTaskbar && target.minimized ? "hidden" : "unsupported";
         }} else {{
             outcome = "unsupported";
         }}
@@ -453,10 +456,16 @@ mod tests {
         assert!(script.contains("window.desktopFileName"));
         assert!(script.contains("window.resourceClass"));
         assert!(script.contains("target.minimized = false"));
+        assert!(script.contains("target.skipTaskbar = false"));
         assert!(script.contains("workspace.activeWindow = target"));
         assert!(script.contains(APPLICATION_ID));
         assert!(script.contains("ReportWindowAction"));
         assert!(script.contains("123-4"));
+
+        let hide_script = render_script(KdeAction::Hide, "123-5");
+        assert!(hide_script.contains("target.skipTaskbar = true"));
+        assert!(hide_script.contains("target.minimized = true"));
+        assert!(hide_script.contains("target.skipTaskbar && target.minimized"));
     }
 
     #[test]

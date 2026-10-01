@@ -3,16 +3,18 @@
 [Русская версия](README_RU.md)
 
 `thunderbird-tray` is a small Linux tray companion for Mozilla Thunderbird 156
-and newer. A Thunderbird Manifest V3 extension will report unread state through
-Native Messaging to a Rust process, which will provide toolkit-free Linux tray
-integration with KDE Plasma Wayland as the first fully supported desktop.
+and newer. A Thunderbird Manifest V3 extension reports unread state through
+Native Messaging to a Rust process, which provides Linux tray integration and
+a native settings window, with KDE Plasma Wayland as the first fully supported
+desktop.
 
 This is a new implementation inspired by Birdtray's user-facing behavior. It is
 not a Birdtray fork and does not reuse Birdtray source or architecture.
 
 The project is under active development. The current implementation connects a
 Thunderbird 156+ extension to the Rust native host and presents aggregate Inbox
-unread state through a toolkit-free StatusNotifierItem and native DBusMenu.
+unread state through a StatusNotifierItem and native DBusMenu. A full settings
+window controls startup, appearance, tray, and Thunderbird integration.
 
 ## Prerequisites
 
@@ -54,7 +56,7 @@ uninstall commands.
 ```sh
 ./scripts/build-release.sh
 ./scripts/check-release.sh
-sudo apt install ./dist/release/thunderbird-tray_0.1.1_amd64.deb
+sudo apt install ./dist/release/thunderbird-tray_0.1.2_amd64.deb
 ```
 
 Then install
@@ -70,6 +72,12 @@ The default path is
 otherwise. See [`packaging/config.example.toml`](packaging/config.example.toml)
 for all initial options.
 
+Open **thunderbird-tray** from the application menu, choose **Settings…** from
+the tray, or run `thunderbird-tray settings`. The resizable window offers
+system, light, and dark themes. It can also install a per-user autostart entry,
+launch Thunderbird with the service, and start Thunderbird hidden in the tray.
+These startup options are disabled by default.
+
 Run `thunderbird-tray doctor` for a localized, privacy-preserving summary of the
 effective configuration and desktop integration. It checks the session bus,
 tray watcher, extension connection, selected backend, native manifest, and
@@ -82,14 +90,21 @@ See the [fallback support matrix](docs/fallbacks.md).
 
 ## Tray interface
 
-The tray distinguishes connected, unread, and disconnected states with its
-icon and localized text. Its native menu shows the current Inbox status, can
-request a fresh complete snapshot, and offers a persistent language selector
+The common application and extension icon is an original transparent pseudo-3D
+amber bird holding an envelope. In unread state the outer and inner envelope
+contours turn red and a badge displays `1`–`99` or `99+`; localized text keeps
+the exact total. The native menu shows the current Inbox status, can request a
+fresh complete snapshot, and offers a persistent language selector
 for Automatic, English, and Русский. On supported KDE Plasma Wayland sessions,
 Open Thunderbird restores and activates the topmost existing Thunderbird
 window; if no window exists, it launches the configured executable. Window
 activation is capability-based and falls back to launch when the selected
 backend cannot control an existing window.
+
+On supported KDE Plasma Wayland sessions, **Hide Thunderbird** minimizes the
+window and removes it from the task manager without stopping mail monitoring.
+The public Thunderbird/KWin interfaces cannot intercept the title-bar close
+button before the window closes, so the explicit Hide action is used instead.
 
 The icons are embedded at multiple sizes, so the core tray UI does not depend
 on an installed icon theme. Plasma renders the menu itself and supplies native
