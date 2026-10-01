@@ -47,24 +47,31 @@ impl LocaleEnvironment {
 }
 
 pub fn resolve_language(mode: LanguageMode, environment: &LocaleEnvironment) -> Language {
+    let automatic = automatic_language(environment);
+    language_for_mode(mode, automatic)
+}
+
+pub fn language_for_mode(mode: LanguageMode, automatic: Language) -> Language {
     match mode {
+        LanguageMode::Auto => automatic,
         LanguageMode::En => Language::English,
         LanguageMode::Ru => Language::Russian,
-        LanguageMode::Auto => {
-            let selected_locale = [
-                environment.lc_all.as_ref(),
-                environment.language.as_ref(),
-                environment.lc_messages.as_ref(),
-                environment.lang.as_ref(),
-            ]
-            .into_iter()
-            .flatten()
-            .find(|value| !value.is_empty());
-            selected_locale
-                .and_then(|value| supported_language(&value.to_string_lossy()))
-                .unwrap_or(Language::English)
-        }
     }
+}
+
+fn automatic_language(environment: &LocaleEnvironment) -> Language {
+    let selected_locale = [
+        environment.lc_all.as_ref(),
+        environment.language.as_ref(),
+        environment.lc_messages.as_ref(),
+        environment.lang.as_ref(),
+    ]
+    .into_iter()
+    .flatten()
+    .find(|value| !value.is_empty());
+    selected_locale
+        .and_then(|value| supported_language(&value.to_string_lossy()))
+        .unwrap_or(Language::English)
 }
 
 fn supported_language(value: &str) -> Option<Language> {

@@ -56,7 +56,7 @@ uninstall commands.
 ```sh
 ./scripts/build-release.sh
 ./scripts/check-release.sh
-sudo apt install ./dist/release/thunderbird-tray_0.1.8_amd64.deb
+sudo apt install ./dist/release/thunderbird-tray_0.1.9_amd64.deb
 ```
 
 Then install

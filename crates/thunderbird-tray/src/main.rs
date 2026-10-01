@@ -85,7 +85,8 @@ fn main() -> Result<()> {
         return write_output(&report.render(localizer));
     }
     if cli.command == Command::Settings {
-        return settings::run(config_source, config, language).map_err(Into::into);
+        let automatic_language = resolve_language(LanguageMode::Auto, &locale_environment);
+        return settings::run(config_source, config, automatic_language).map_err(Into::into);
     }
 
     tracing_subscriber::fmt()

@@ -2,7 +2,7 @@
 
 //! Native settings window backed by the same strict TOML configuration.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use slint::{ComponentHandle, SharedString};
@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::autostart::{AutostartEntry, AutostartError};
 use crate::config::{Config, ConfigError, ConfigSource, LanguageMode, ThemeMode, WindowBackend};
-use crate::i18n::Language;
+use crate::i18n::{Language, language_for_mode};
 use crate::lifecycle::LifecycleClient;
 
 slint::slint! {
@@ -200,16 +200,121 @@ slint::slint! {
 pub fn run(
     config_source: ConfigSource,
     config: Config,
-    language: Language,
+    automatic_language: Language,
 ) -> Result<(), SettingsError> {
     let autostart = AutostartEntry::discover()?;
-    let strings = SettingsStrings::new(language);
     let window = SettingsWindow::new()?;
+    let language = language_for_mode(config.general.language, automatic_language);
+    let strings = apply_language(&window, language);
 
     if let Some(icon) = crate::tray_icons::application_image() {
         window.set_app_icon(icon);
     }
 
+    window.set_autostart_enabled(autostart.is_enabled());
+    window.set_start_thunderbird(config.general.start_thunderbird);
+    window.set_start_minimized(config.general.start_minimized);
+    window.set_notifications_enabled(config.general.notifications);
+    window.set_show_unread_count(config.tray.show_unread_count);
+    window.set_hide_when_zero(config.tray.hide_when_zero);
+    window.set_language_index(language_index(config.general.language));
+    window.set_theme_index(theme_index(config.general.theme));
+    window.set_backend_index(backend_index(config.window.backend));
+    window.set_thunderbird_command(config.thunderbird.command.clone().into());
+    window.set_apply_enabled(false);
+
+    if let Err(error) = ensure_tray_service(&config_source) {
+        window.set_status_is_error(true);
+        window.set_status_message(format!("{}: {error}", strings.apply_failed).into());
+    }
+
+    let saved_values = Rc::new(RefCell::new(SettingsValues::from_window(&window)));
+    let preview_language = Rc::new(Cell::new(language));
+
+    let weak = window.as_weak();
+    let edited_saved_values = Rc::clone(&saved_values);
+    let edited_preview_language = Rc::clone(&preview_language);
+    window.on_edited(move || {
+        let Some(window) = weak.upgrade() else {
+            return;
+        };
+        let current_values = SettingsValues::from_window(&window);
+        let language = language_for_mode(current_values.language, automatic_language);
+        if language != edited_preview_language.get() {
+            apply_language(&window, language);
+            edited_preview_language.set(language);
+        }
+        let changed = current_values != *edited_saved_values.borrow();
+        window.set_apply_enabled(changed);
+        window.set_status_message(SharedString::default());
+    });
+
+    window.on_cancel(move || {
+        let _ = slint::quit_event_loop();
+    });
+
+    let weak = window.as_weak();
+    let saved_config = config.clone();
+    let applied_saved_values = Rc::clone(&saved_values);
+    window.on_apply(move |close_after_success| {
+        let Some(window) = weak.upgrade() else {
+            return;
+        };
+        let current_values = SettingsValues::from_window(&window);
+        if current_values == *applied_saved_values.borrow() {
+            if close_after_success {
+                let _ = slint::quit_event_loop();
+            }
+            return;
+        }
+        window.set_status_message(SharedString::default());
+        let strings = SettingsStrings::new(language_for_mode(
+            current_values.language,
+            automatic_language,
+        ));
+        let mut updated = saved_config.clone();
+        current_values.write_to_config(&mut updated);
+
+        let previous_autostart = autostart.is_enabled();
+        let requested_autostart = current_values.autostart_enabled;
+        let result = autostart
+            .set_enabled(requested_autostart)
+            .map_err(SettingsError::Autostart)
+            .and_then(|()| config_source.save(&updated).map_err(SettingsError::Config));
+        if let Err(error) = result {
+            if previous_autostart != requested_autostart {
+                let _ = autostart.set_enabled(previous_autostart);
+            }
+            window.set_status_is_error(true);
+            window.set_status_message(format!("{}: {error}", strings.save_failed).into());
+            return;
+        }
+
+        let service_result = LifecycleClient::connect().and_then(|client| {
+            client.ensure_service_running(Some(config_source.path()))?;
+            client.notify_configuration_changed()
+        });
+        if let Err(error) = service_result {
+            window.set_status_is_error(true);
+            window.set_status_message(format!("{}: {error}", strings.apply_failed).into());
+            return;
+        }
+
+        window.set_status_is_error(false);
+        window.set_status_message(strings.applied.into());
+        *applied_saved_values.borrow_mut() = current_values;
+        window.set_apply_enabled(false);
+        if close_after_success {
+            let _ = slint::quit_event_loop();
+        }
+    });
+
+    window.run()?;
+    Ok(())
+}
+
+fn apply_language(window: &SettingsWindow, language: Language) -> SettingsStrings {
+    let strings = SettingsStrings::new(language);
     window.set_window_title(strings.window_title.into());
     window.set_general_tab(strings.general_tab.into());
     window.set_tray_tab(strings.tray_tab.into());
@@ -254,95 +359,7 @@ pub fn run(
         ]))
         .into(),
     );
-
-    window.set_autostart_enabled(autostart.is_enabled());
-    window.set_start_thunderbird(config.general.start_thunderbird);
-    window.set_start_minimized(config.general.start_minimized);
-    window.set_notifications_enabled(config.general.notifications);
-    window.set_show_unread_count(config.tray.show_unread_count);
-    window.set_hide_when_zero(config.tray.hide_when_zero);
-    window.set_language_index(language_index(config.general.language));
-    window.set_theme_index(theme_index(config.general.theme));
-    window.set_backend_index(backend_index(config.window.backend));
-    window.set_thunderbird_command(config.thunderbird.command.clone().into());
-    window.set_apply_enabled(false);
-
-    if let Err(error) = ensure_tray_service(&config_source) {
-        window.set_status_is_error(true);
-        window.set_status_message(format!("{}: {error}", strings.apply_failed).into());
-    }
-
-    let saved_values = Rc::new(RefCell::new(SettingsValues::from_window(&window)));
-
-    let weak = window.as_weak();
-    let edited_saved_values = Rc::clone(&saved_values);
-    window.on_edited(move || {
-        let Some(window) = weak.upgrade() else {
-            return;
-        };
-        let changed = SettingsValues::from_window(&window) != *edited_saved_values.borrow();
-        window.set_apply_enabled(changed);
-        window.set_status_message(SharedString::default());
-    });
-
-    window.on_cancel(move || {
-        let _ = slint::quit_event_loop();
-    });
-
-    let weak = window.as_weak();
-    let saved_config = config.clone();
-    let applied_saved_values = Rc::clone(&saved_values);
-    window.on_apply(move |close_after_success| {
-        let Some(window) = weak.upgrade() else {
-            return;
-        };
-        let current_values = SettingsValues::from_window(&window);
-        if current_values == *applied_saved_values.borrow() {
-            if close_after_success {
-                let _ = slint::quit_event_loop();
-            }
-            return;
-        }
-        window.set_status_message(SharedString::default());
-        let mut updated = saved_config.clone();
-        current_values.write_to_config(&mut updated);
-
-        let previous_autostart = autostart.is_enabled();
-        let requested_autostart = current_values.autostart_enabled;
-        let result = autostart
-            .set_enabled(requested_autostart)
-            .map_err(SettingsError::Autostart)
-            .and_then(|()| config_source.save(&updated).map_err(SettingsError::Config));
-        if let Err(error) = result {
-            if previous_autostart != requested_autostart {
-                let _ = autostart.set_enabled(previous_autostart);
-            }
-            window.set_status_is_error(true);
-            window.set_status_message(format!("{}: {error}", strings.save_failed).into());
-            return;
-        }
-
-        let service_result = LifecycleClient::connect().and_then(|client| {
-            client.ensure_service_running(Some(config_source.path()))?;
-            client.notify_configuration_changed()
-        });
-        if let Err(error) = service_result {
-            window.set_status_is_error(true);
-            window.set_status_message(format!("{}: {error}", strings.apply_failed).into());
-            return;
-        }
-
-        window.set_status_is_error(false);
-        window.set_status_message(strings.applied.into());
-        *applied_saved_values.borrow_mut() = current_values;
-        window.set_apply_enabled(false);
-        if close_after_success {
-            let _ = slint::quit_event_loop();
-        }
-    });
-
-    window.run()?;
-    Ok(())
+    strings
 }
 
 fn ensure_tray_service(
@@ -609,6 +626,18 @@ mod tests {
             (russian.cancel, russian.apply, russian.done),
             ("Отмена", "Применить", "Готово")
         );
+    }
+
+    #[test]
+    fn settings_language_follows_manual_and_automatic_modes() {
+        let automatic =
+            SettingsStrings::new(language_for_mode(LanguageMode::Auto, Language::Russian));
+        let english = SettingsStrings::new(language_for_mode(LanguageMode::En, Language::Russian));
+        let russian = SettingsStrings::new(language_for_mode(LanguageMode::Ru, Language::English));
+
+        assert_eq!(automatic.language, "Язык интерфейса");
+        assert_eq!(english.language, "Interface language");
+        assert_eq!(russian.language, "Язык интерфейса");
     }
 
     #[test]

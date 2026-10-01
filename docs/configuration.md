@@ -34,6 +34,10 @@ a Russian process locale and otherwise falls back to English. The tray language
 submenu changes visible text immediately and persists the selected mode through
 this config boundary.
 
+The settings window previews `Automatic`, `English`, and `Русский` immediately.
+`Apply` or `Done` persists the preview and updates the running tray; `Cancel`
+closes the window without saving it.
+
 The normal settings window is available from the application launcher, the
 tray menu, or `thunderbird-tray settings`. It writes this same strict TOML
 schema when Apply is pressed. Appearance values are `system`, `light`, and

@@ -4,7 +4,7 @@
 
 use crate::config::{LanguageMode, TrayConfig};
 use crate::core::TrayState;
-use crate::i18n::{Language, Localizer, TrayLabels};
+use crate::i18n::{Language, Localizer, TrayLabels, language_for_mode};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TrayIcon {
@@ -92,11 +92,7 @@ impl TrayModel {
     }
 
     pub fn presentation(&self) -> TrayPresentation {
-        let language = match self.language_mode {
-            LanguageMode::Auto => self.automatic_language,
-            LanguageMode::En => Language::English,
-            LanguageMode::Ru => Language::Russian,
-        };
+        let language = language_for_mode(self.language_mode, self.automatic_language);
         let icon = match self.state {
             TrayState::Disconnected => TrayIcon::Disconnected,
             TrayState::NoUnread => TrayIcon::Connected,
