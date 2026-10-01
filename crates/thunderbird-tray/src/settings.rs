@@ -2,7 +2,6 @@
 
 //! Native settings window backed by the same strict TOML configuration.
 
-use std::cell::Cell;
 use std::rc::Rc;
 
 use slint::{ComponentHandle, SharedString};
@@ -58,6 +57,7 @@ slint::slint! {
         in-out property <int> backend-index;
         in-out property <string> thunderbird-command;
         in-out property <string> status-message;
+        in-out property <bool> status-is-error;
 
         callback apply();
         callback cancel();
@@ -155,7 +155,7 @@ slint::slint! {
 
             Text {
                 text: root.status-message;
-                color: #b91c1c;
+                color: root.status-is-error ? #b91c1c : #15803d;
                 wrap: word-wrap;
                 visible: root.status-message != "";
             }
@@ -245,10 +245,7 @@ pub fn run(
     window.set_backend_index(backend_index(config.window.backend));
     window.set_thunderbird_command(config.thunderbird.command.clone().into());
 
-    let cancelled = Rc::new(Cell::new(false));
-    let cancel_flag = Rc::clone(&cancelled);
     window.on_cancel(move || {
-        cancel_flag.set(true);
         let _ = slint::quit_event_loop();
     });
 
@@ -258,6 +255,7 @@ pub fn run(
         let Some(window) = weak.upgrade() else {
             return;
         };
+        window.set_status_message(SharedString::default());
         let mut updated = saved_config.clone();
         updated.general.start_thunderbird = window.get_start_thunderbird();
         updated.general.start_minimized =
@@ -280,20 +278,26 @@ pub fn run(
             if previous_autostart != requested_autostart {
                 let _ = autostart.set_enabled(previous_autostart);
             }
+            window.set_status_is_error(true);
             window.set_status_message(format!("{}: {error}", strings.save_failed).into());
             return;
         }
 
-        if let Ok(client) = LifecycleClient::connect() {
-            if client.service_is_running().unwrap_or(false) {
-                let _ = client.notify_configuration_changed();
-            }
+        let service_result = LifecycleClient::connect().and_then(|client| {
+            client.ensure_service_running(Some(config_source.path()))?;
+            client.notify_configuration_changed()
+        });
+        if let Err(error) = service_result {
+            window.set_status_is_error(true);
+            window.set_status_message(format!("{}: {error}", strings.apply_failed).into());
+            return;
         }
-        let _ = slint::quit_event_loop();
+
+        window.set_status_is_error(false);
+        window.set_status_message(strings.applied.into());
     });
 
     window.run()?;
-    let _ = cancelled;
     Ok(())
 }
 
@@ -374,6 +378,8 @@ struct SettingsStrings {
     backend_auto: &'static str,
     backend_none: &'static str,
     save_failed: &'static str,
+    apply_failed: &'static str,
+    applied: &'static str,
 }
 
 impl SettingsStrings {
@@ -405,6 +411,8 @@ impl SettingsStrings {
                 backend_auto: "Automatic",
                 backend_none: "None",
                 save_failed: "Could not save settings",
+                apply_failed: "Settings were saved, but could not be applied",
+                applied: "Settings applied. thunderbird-tray is running.",
             },
             Language::Russian => Self {
                 window_title: "Настройки thunderbird-tray",
@@ -432,6 +440,8 @@ impl SettingsStrings {
                 backend_auto: "Автоматически",
                 backend_none: "Нет",
                 save_failed: "Не удалось сохранить настройки",
+                apply_failed: "Настройки сохранены, но применить их не удалось",
+                applied: "Настройки применены. thunderbird-tray запущен.",
             },
         }
     }

@@ -5,9 +5,13 @@
 use std::fs::File;
 use std::io::{self, Read};
 use std::os::unix::net::UnixStream;
+use std::path::Path;
+use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Sender;
+use std::thread;
+use std::time::{Duration, Instant};
 
 use thiserror::Error;
 use zbus::blocking::connection::Builder;
@@ -18,6 +22,10 @@ use zbus::zvariant::{Fd, OwnedFd};
 pub const APPLICATION_ID: &str = env!("THUNDERBIRD_TRAY_APPLICATION_ID");
 pub const LIFECYCLE_INTERFACE: &str = env!("THUNDERBIRD_TRAY_LIFECYCLE_INTERFACE");
 pub const LIFECYCLE_OBJECT_PATH: &str = env!("THUNDERBIRD_TRAY_LIFECYCLE_OBJECT_PATH");
+pub const DETACH_SERVICE_ENVIRONMENT: &str = "THUNDERBIRD_TRAY_DETACH_SERVICE";
+
+const SERVICE_START_TIMEOUT: Duration = Duration::from_secs(3);
+const SERVICE_START_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
 pub struct AttachedNativeStream {
     pub input: File,
@@ -161,6 +169,26 @@ impl LifecycleClient {
         Ok(proxy.name_has_owner(name)?)
     }
 
+    pub fn ensure_service_running(&self, config_path: Option<&Path>) -> Result<(), LifecycleError> {
+        if self.service_is_running()? {
+            return Ok(());
+        }
+
+        let executable = std::env::current_exe().map_err(LifecycleError::CurrentExecutable)?;
+        service_command(&executable, config_path)
+            .spawn()
+            .map_err(LifecycleError::StartService)?;
+
+        let deadline = Instant::now() + SERVICE_START_TIMEOUT;
+        while Instant::now() < deadline {
+            if self.service_is_running()? {
+                return Ok(());
+            }
+            thread::sleep(SERVICE_START_POLL_INTERVAL);
+        }
+        Err(LifecycleError::ServiceStartTimeout)
+    }
+
     pub fn native_session_active(&self) -> Result<bool, LifecycleError> {
         let proxy = Proxy::new(
             &self.connection,
@@ -208,6 +236,20 @@ impl LifecycleClient {
     }
 }
 
+fn service_command(executable: &Path, config_path: Option<&Path>) -> Command {
+    let mut command = Command::new(executable);
+    command
+        .arg("--service")
+        .env(DETACH_SERVICE_ENVIRONMENT, "1")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::inherit());
+    if let Some(config_path) = config_path {
+        command.arg("--config").arg(config_path);
+    }
+    command
+}
+
 #[derive(Debug, Error)]
 pub enum ClaimError {
     #[error("thunderbird-tray is already running in this user session")]
@@ -226,6 +268,12 @@ pub enum LifecycleError {
     InvalidBusName(#[from] zbus::names::Error),
     #[error("could not wait for the primary process to finish the native session: {0}")]
     Completion(#[source] io::Error),
+    #[error("could not resolve the thunderbird-tray executable: {0}")]
+    CurrentExecutable(#[source] io::Error),
+    #[error("could not start the thunderbird-tray service: {0}")]
+    StartService(#[source] io::Error),
+    #[error("timed out waiting for the thunderbird-tray service to start")]
+    ServiceStartTimeout,
 }
 
 #[cfg(test)]
@@ -247,6 +295,25 @@ mod tests {
             LIFECYCLE_OBJECT_PATH,
             "/io/github/apophuy/thunderbird_tray/Lifecycle"
         );
+    }
+
+    #[test]
+    fn service_launch_is_detached_and_preserves_an_explicit_config_path() {
+        let command = service_command(
+            Path::new("/opt/thunderbird-tray/bin/thunderbird-tray"),
+            Some(Path::new("/tmp/settings/config.toml")),
+        );
+        assert_eq!(
+            command.get_program(),
+            "/opt/thunderbird-tray/bin/thunderbird-tray"
+        );
+        assert_eq!(
+            command.get_args().collect::<Vec<_>>(),
+            ["--service", "--config", "/tmp/settings/config.toml"]
+        );
+        assert!(command.get_envs().any(|(name, value)| {
+            name == DETACH_SERVICE_ENVIRONMENT && value.is_some_and(|value| value == "1")
+        }));
     }
 
     #[test]

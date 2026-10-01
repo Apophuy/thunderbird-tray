@@ -25,7 +25,10 @@ there is no second service or network interface. The window has General, Tray,
 and Thunderbird tabs, explicit Apply/Cancel behavior, and a `Palette` color
 scheme selected from `system`, `light`, or `dark`. The saved TOML remains the
 single configuration source. Apply notifies the running D-Bus service to reload
-settings.
+settings. If no service owns the application name yet, Apply starts a detached
+service with the same executable and configuration path first. The settings
+window stays open and displays the result. This current-session behavior is
+independent from XDG autostart, which controls future sign-ins.
 
 Slint's generated macro code needs to control its internal unsafe lint. The
 workspace therefore changes `unsafe_code` from `forbid` to `deny`: handwritten
@@ -58,6 +61,8 @@ per-user XDG autostart entry; packages do not enable it automatically.
   trademark and remains legible against light or dark desktop themes.
 - Autostart, Thunderbird launch, and start-hidden behavior remain explicit
   per-user choices and require no root access.
+- Opening settings from the application menu can start the current tray session
+  without waiting for Thunderbird to launch the Native Messaging host.
 
 ## References
 

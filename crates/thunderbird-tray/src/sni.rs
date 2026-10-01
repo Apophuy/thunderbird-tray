@@ -3,6 +3,7 @@
 //! `ksni` adapter for the desktop-independent tray model.
 
 use std::sync::mpsc::Sender;
+use std::time::{Duration, Instant};
 
 use ksni::blocking::{Handle, TrayMethods};
 use ksni::menu::{RadioGroup, RadioItem, StandardItem, SubMenu};
@@ -16,20 +17,45 @@ use crate::tray_icons;
 pub struct SniTray {
     model: TrayModel,
     actions: Sender<TrayAction>,
+    last_activation: Option<Instant>,
 }
+
+const DOUBLE_CLICK_INTERVAL: Duration = Duration::from_millis(500);
 
 impl SniTray {
     pub fn new(model: TrayModel, actions: Sender<TrayAction>) -> Self {
-        Self { model, actions }
+        Self {
+            model,
+            actions,
+            last_activation: None,
+        }
     }
 
     fn enqueue(&self, action: TrayAction) {
         let _ = self.actions.send(action);
     }
+
+    fn record_activation(&mut self, now: Instant) -> bool {
+        let is_double_click = self
+            .last_activation
+            .is_some_and(|previous| now.duration_since(previous) <= DOUBLE_CLICK_INTERVAL);
+        self.last_activation = if is_double_click { None } else { Some(now) };
+        is_double_click
+    }
+
+    fn activate_at(&mut self, now: Instant) {
+        if self.record_activation(now) {
+            self.enqueue(TrayAction::OpenThunderbird);
+        }
+    }
 }
 
 impl ksni::Tray for SniTray {
-    const MENU_ON_ACTIVATE: bool = true;
+    const MENU_ON_ACTIVATE: bool = false;
+
+    fn activate(&mut self, _x: i32, _y: i32) {
+        self.activate_at(Instant::now());
+    }
 
     fn id(&self) -> String {
         "thunderbird-tray".to_owned()
@@ -276,6 +302,21 @@ mod tests {
         };
         (quit.activate)(&mut tray);
         assert_eq!(receiver.recv().unwrap(), TrayAction::Quit);
+    }
+
+    #[test]
+    fn two_primary_activations_open_thunderbird_but_one_does_not() {
+        let (mut tray, receiver) = tray(TrayState::NoUnread);
+        let first = Instant::now();
+
+        tray.activate_at(first);
+        assert!(receiver.try_recv().is_err());
+        tray.activate_at(first + Duration::from_millis(300));
+        assert_eq!(receiver.recv().unwrap(), TrayAction::OpenThunderbird);
+
+        tray.activate_at(first + Duration::from_secs(2));
+        tray.activate_at(first + Duration::from_millis(2_600));
+        assert!(receiver.try_recv().is_err());
     }
 
     #[test]

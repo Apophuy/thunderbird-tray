@@ -35,6 +35,12 @@ The application owns a pure presentation model and action enum. `ksni` callbacks
 only enqueue actions and never block on application work. D-Bus types do not
 enter core state or the Native Messaging protocol.
 
+Expose the item as activatable rather than `ItemIsMenu`. The SNI contract sends
+an `Activate` request for a primary activation but carries no click count, so
+the adapter recognizes two requests within 500 ms as a double activation and
+enqueues Open Thunderbird. A single activation does nothing; the DBusMenu
+remains available through Plasma's context/right-click gesture.
+
 ## Alternatives considered
 
 - Direct `zbus`: flexible, but it would duplicate substantial SNI watcher,

@@ -14,6 +14,12 @@ const SIZES: [i32; 3] = [22, 32, 48];
 const SUPERSAMPLING: i32 = 4;
 const LIGHT: [u8; 3] = [255, 247, 237];
 const UNREAD_RED: [u8; 3] = [185, 28, 28];
+const BADGE_BORDER: [u8; 3] = [248, 250, 252];
+const BADGE_BACKGROUND: [u8; 3] = [18, 59, 93];
+const BADGE_TEXT: [u8; 3] = [255, 255, 255];
+const BADGE_LEFT: f64 = 18.8;
+const BADGE_RIGHT: f64 = 31.9;
+const BADGE_TEXT_CENTER_X: f64 = 25.5;
 
 const CONNECTED_PNG: &[u8] = include_bytes!("../../../assets/thunderbird-tray-amber.png");
 const UNREAD_PNG: &[u8] = include_bytes!("../../../assets/thunderbird-tray-unread.png");
@@ -140,14 +146,14 @@ fn overlay_sample(state: TrayIcon, unread_count: Option<u32>, x: f64, y: f64) ->
     if state == TrayIcon::Unread {
         let text = unread_count.map(badge_text);
         let mut color = None;
-        if inside_rounded_rect(x, y, 17.7, 0.5, 31.5, 13.5, 6.5) {
-            color = Some(LIGHT);
+        if inside_rounded_rect(x, y, BADGE_LEFT, 0.5, BADGE_RIGHT, 13.5, 6.5) {
+            color = Some(BADGE_BORDER);
         }
-        if inside_rounded_rect(x, y, 18.9, 1.7, 30.3, 12.3, 5.3) {
-            color = Some(UNREAD_RED);
+        if inside_rounded_rect(x, y, 20.0, 1.7, 30.7, 12.3, 5.3) {
+            color = Some(BADGE_BACKGROUND);
         }
         if text.is_some_and(|text| glyph_text_contains(&text, x, y)) {
-            color = Some(LIGHT);
+            color = Some(BADGE_TEXT);
         }
         return color;
     }
@@ -199,7 +205,7 @@ fn glyph_text_contains(text: &str, x: f64, y: f64) -> bool {
     let glyph_width = 3.0 * scale;
     let gap = scale;
     let text_width = glyph_width * text.len() as f64 + gap * text.len().saturating_sub(1) as f64;
-    let left = 24.6 - text_width / 2.0;
+    let left = BADGE_TEXT_CENTER_X - text_width / 2.0;
     let top = 7.0 - 2.5 * scale;
 
     text.chars().enumerate().any(|(index, character)| {
@@ -299,5 +305,21 @@ mod tests {
         assert_ne!(one.data, twelve.data);
         assert_ne!(twelve.data, overflow.data);
         assert_ne!(one.data, overflow.data);
+    }
+
+    #[test]
+    fn unread_badge_uses_high_contrast_blue_and_is_right_aligned() {
+        assert_eq!(
+            overlay_sample(TrayIcon::Unread, Some(7), 19.0, 7.0),
+            Some(BADGE_BORDER)
+        );
+        assert_eq!(
+            overlay_sample(TrayIcon::Unread, Some(7), 22.0, 4.0),
+            Some(BADGE_BACKGROUND)
+        );
+        assert_eq!(
+            overlay_sample(TrayIcon::Unread, Some(7), 25.5, 4.0),
+            Some(BADGE_TEXT)
+        );
     }
 }

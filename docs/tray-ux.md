@@ -10,7 +10,7 @@ and a distinctive pseudo-3D icon family.
 |---|---|---|---|
 | Disconnected | muted amber bird/envelope with a red disconnect slash | connection unavailable | never shown |
 | Connected, zero | original amber bird holding a cream envelope | Inbox is up to date | not applicable |
-| Connected, unread | amber bird with red outer and inner envelope contours plus a numeric badge | localized Inbox unread count | not applicable |
+| Connected, unread | amber bird with red envelope contours plus a white-on-navy numeric badge | localized Inbox unread count | not applicable |
 
 All states remain visible by default. If `tray.hide_when_zero` is enabled, the
 zero state becomes passive and Plasma may hide it. Unread state is active rather
@@ -39,9 +39,19 @@ the handshake, and replaces the model with a fresh complete snapshot. Loss of
 Plasma's StatusNotifierWatcher is recoverable and does not terminate the tray
 service.
 
+Thunderbird remains authoritative for accounts and unread state. The tray
+process never connects to mail servers directly, so it cannot check for new
+mail while Thunderbird is closed; double activation starts Thunderbird and a
+fresh extension handshake then replaces the disconnected state.
+
 English and Russian labels use DBusMenu underscore mnemonics where practical.
 The read-only status line explains the current state without requiring a
 tooltip or icon interpretation.
+
+Two primary activations within 500 ms open or activate Thunderbird. The SNI
+protocol does not carry a click count, so the application recognizes the pair
+of `Activate` calls; a single primary activation performs no action. The native
+menu remains available from the context/right-click gesture.
 
 ## Accessibility and behavior
 
@@ -51,8 +61,9 @@ tooltip or icon interpretation.
   distinguish states.
 - The first original amber artwork is the common application, desktop, window,
   extension, and connected-state identity; only state overlays/variants change.
-- Unread counts render as `1`–`99` and `99+` on the physical icon while the
-  tooltip and menu retain the exact aggregate count.
+- Unread counts render as `1`–`99` and `99+` in a high-contrast white-on-navy
+  badge positioned toward the icon's upper-right edge, while the tooltip and
+  menu retain the exact aggregate count.
 - Account names and other untrusted Thunderbird strings do not appear in the
   initial tray surface.
 - Menu callbacks enqueue small typed actions and return immediately.
@@ -62,6 +73,7 @@ tooltip or icon interpretation.
 The settings command opens a normal resizable window with General, Tray, and
 Thunderbird tabs. It exposes autostart, Thunderbird launch/start-hidden,
 notifications, language, system/light/dark appearance, unread badge behavior,
-command, and backend. Apply persists and notifies the service; Cancel closes
-without changes. The window explicitly explains the close-button limitation
+command, and backend. Apply persists, starts or notifies the service, and keeps
+the window open with a result message; Cancel closes without further changes.
+The window explicitly explains the close-button limitation
 instead of implying that a post-close event can keep Thunderbird alive.

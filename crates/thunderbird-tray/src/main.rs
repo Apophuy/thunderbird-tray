@@ -6,7 +6,7 @@ use std::io::{self, Write};
 use std::process::{Command as ProcessCommand, Stdio};
 use std::sync::mpsc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use anyhow::{Result, anyhow};
 use thunderbird_tray::cli::{Cli, Command};
@@ -16,7 +16,8 @@ use thunderbird_tray::doctor::DoctorReport;
 use thunderbird_tray::i18n::{LocaleEnvironment, Localizer, resolve_language};
 use thunderbird_tray::kde_wayland::KdeWindowControl;
 use thunderbird_tray::lifecycle::{
-    AttachedNativeStream, ClaimError, LifecycleClient, LifecycleService, WindowActionReport,
+    AttachedNativeStream, ClaimError, DETACH_SERVICE_ENVIRONMENT, LifecycleClient,
+    LifecycleService, WindowActionReport,
 };
 use thunderbird_tray::native_manifest;
 use thunderbird_tray::settings;
@@ -32,9 +33,7 @@ use thunderbird_tray::{HostError, run_host, run_host_with_callbacks, write_messa
 use thunderbird_tray_protocol::{Message, RequestFullStatePayload};
 use tracing::{error, info, warn};
 
-const SERVICE_START_TIMEOUT: Duration = Duration::from_secs(3);
 const EVENT_POLL_INTERVAL: Duration = Duration::from_millis(50);
-const DETACH_SERVICE_ENVIRONMENT: &str = "THUNDERBIRD_TRAY_DETACH_SERVICE";
 
 fn main() -> Result<()> {
     let locale_environment = LocaleEnvironment::from_process();
@@ -136,38 +135,9 @@ fn run_native_launcher(localizer: Localizer) -> Result<()> {
         }
     };
 
-    if !client
-        .service_is_running()
-        .map_err(|error| anyhow!(localizer.lifecycle_error(&error)))?
-    {
-        let executable =
-            std::env::current_exe().map_err(|error| anyhow!(localizer.lifecycle_error(&error)))?;
-        ProcessCommand::new(executable)
-            .arg("--service")
-            .env(DETACH_SERVICE_ENVIRONMENT, "1")
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .map_err(|error| anyhow!(localizer.lifecycle_error(&error)))?;
-
-        let deadline = Instant::now() + SERVICE_START_TIMEOUT;
-        while Instant::now() < deadline {
-            if client
-                .service_is_running()
-                .map_err(|error| anyhow!(localizer.lifecycle_error(&error)))?
-            {
-                break;
-            }
-            thread::sleep(Duration::from_millis(25));
-        }
-        if !client
-            .service_is_running()
-            .map_err(|error| anyhow!(localizer.lifecycle_error(&error)))?
-        {
-            return Err(anyhow!(localizer.service_start_timeout()));
-        }
-    }
+    client
+        .ensure_service_running(None)
+        .map_err(|error| anyhow!(localizer.lifecycle_error(&error)))?;
 
     client
         .attach_standard_streams()
