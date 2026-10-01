@@ -106,15 +106,24 @@ watcher returns. See
 
 ## Window control and process launch
 
-Window integration is capability-based: activate, hide, and show support are
-reported independently. Backend selection records environment hints, runtime
-availability, and its reason, while unsupported operations remain typed errors.
-The initial `none` backend keeps the tray and unread monitoring operational on
-desktops without global window control.
+Window integration is capability-based: detect, activate, hide, and show
+support are reported independently. Backend selection records environment
+hints, runtime availability, and its reason, while unsupported operations
+remain typed errors. The `none` backend keeps the tray and unread monitoring
+operational on desktops without global window control.
 
 Open Thunderbird attempts activation only when the selected backend advertises
 it. Otherwise it launches the configured executable and literal argument array
 through `std::process::Command`, never a shell. Child standard input/output
 cannot interfere with Native Messaging, and the persistent process reaps child
-exit status. See
-[`adr/0003-capability-based-window-control.md`](adr/0003-capability-based-window-control.md).
+exit status.
+
+On Plasma Wayland, a runtime-probed KWin 6 backend performs the four window
+operations through unique one-shot KWin JavaScript files in the user's runtime
+directory. It uses the documented KWin window API but treats the session D-Bus
+script loader as compatibility-sensitive. Scripts report bounded results over
+the existing lifecycle D-Bus service and are unloaded and removed after every
+operation. No X11/XWayland API or persistent KWin package is required. See
+[`wayland.md`](wayland.md),
+[`adr/0003-capability-based-window-control.md`](adr/0003-capability-based-window-control.md),
+and [`adr/0004-kwin-one-shot-scripts.md`](adr/0004-kwin-one-shot-scripts.md).

@@ -152,6 +152,7 @@ pub fn select_backend(
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct WindowCapabilities {
+    pub detect: bool,
     pub activate: bool,
     pub hide: bool,
     pub show: bool,
@@ -159,6 +160,7 @@ pub struct WindowCapabilities {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum WindowOperation {
+    Detect,
     Activate,
     Hide,
     Show,
@@ -167,6 +169,7 @@ pub enum WindowOperation {
 impl fmt::Display for WindowOperation {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
+            Self::Detect => "detect",
             Self::Activate => "activate",
             Self::Hide => "hide",
             Self::Show => "show",
@@ -183,6 +186,7 @@ pub enum ActivationOutcome {
 pub trait WindowControl {
     fn backend(&self) -> WindowBackendChoice;
     fn capabilities(&self) -> WindowCapabilities;
+    fn detect(&self) -> Result<bool, WindowError>;
     fn activate(&self) -> Result<ActivationOutcome, WindowError>;
     fn hide(&self) -> Result<(), WindowError>;
     fn show(&self) -> Result<(), WindowError>;
@@ -214,6 +218,10 @@ impl WindowControl for UnsupportedWindowControl {
 
     fn capabilities(&self) -> WindowCapabilities {
         WindowCapabilities::default()
+    }
+
+    fn detect(&self) -> Result<bool, WindowError> {
+        Err(self.unsupported(WindowOperation::Detect))
     }
 
     fn activate(&self) -> Result<ActivationOutcome, WindowError> {

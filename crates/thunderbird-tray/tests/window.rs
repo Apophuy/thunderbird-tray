@@ -79,6 +79,13 @@ fn unsupported_backend_reports_each_missing_capability() {
     assert_eq!(backend.backend(), WindowBackend::None);
     assert_eq!(backend.capabilities(), WindowCapabilities::default());
     assert!(matches!(
+        backend.detect(),
+        Err(WindowError::Unsupported {
+            operation: WindowOperation::Detect,
+            ..
+        })
+    ));
+    assert!(matches!(
         backend.activate(),
         Err(WindowError::Unsupported {
             operation: WindowOperation::Activate,
@@ -113,6 +120,10 @@ impl WindowControl for MockBackend {
 
     fn capabilities(&self) -> WindowCapabilities {
         self.capabilities
+    }
+
+    fn detect(&self) -> Result<bool, WindowError> {
+        Ok(true)
     }
 
     fn activate(&self) -> Result<ActivationOutcome, WindowError> {

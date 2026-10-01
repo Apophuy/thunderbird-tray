@@ -14,14 +14,15 @@ use thunderbird_tray::config::{Config, ConfigSource, LanguageMode, WindowBackend
 use thunderbird_tray::core::TrayState;
 use thunderbird_tray::doctor::DoctorReport;
 use thunderbird_tray::i18n::{LocaleEnvironment, Localizer, resolve_language};
+use thunderbird_tray::kde_wayland::KdeWindowControl;
 use thunderbird_tray::lifecycle::{
-    AttachedNativeStream, ClaimError, LifecycleClient, LifecycleService,
+    AttachedNativeStream, ClaimError, LifecycleClient, LifecycleService, WindowActionReport,
 };
 use thunderbird_tray::sni::SniService;
 use thunderbird_tray::tray::{TrayAction, TrayModel};
 use thunderbird_tray::window::{
     BackendAvailability, DesktopEnvironment, OpenOutcome, ProcessLauncher,
-    UnsupportedWindowControl, open_thunderbird, reap_children, select_backend,
+    UnsupportedWindowControl, WindowControl, open_thunderbird, reap_children, select_backend,
 };
 use thunderbird_tray::{HostError, run_host, run_host_with_callbacks, write_message};
 use thunderbird_tray_protocol::{Message, RequestFullStatePayload};
@@ -85,7 +86,8 @@ fn main() -> Result<()> {
 
     let background_service = cli.command == Command::Service;
     let (attached_tx, attached_rx) = mpsc::channel();
-    let lifecycle = match LifecycleService::claim(attached_tx) {
+    let (window_report_tx, window_report_rx) = mpsc::channel();
+    let lifecycle = match LifecycleService::claim(attached_tx, window_report_tx) {
         Ok(service) => service,
         Err(ClaimError::AlreadyRunning) if background_service => return Ok(()),
         Err(ClaimError::AlreadyRunning) => return Err(anyhow!(localizer.already_running())),
@@ -98,6 +100,7 @@ fn main() -> Result<()> {
         locale_environment,
         lifecycle,
         attached_rx,
+        window_report_rx,
         requested_window_backend,
     )
 }
@@ -236,13 +239,25 @@ fn run_application(
     locale_environment: LocaleEnvironment,
     lifecycle: LifecycleService,
     attached_rx: mpsc::Receiver<AttachedNativeStream>,
+    window_report_rx: mpsc::Receiver<WindowActionReport>,
     requested_window_backend: WindowBackend,
 ) -> Result<()> {
     let desktop_environment = DesktopEnvironment::from_process();
+    let kde_window_control = match KdeWindowControl::connect(&desktop_environment, window_report_rx)
+    {
+        Ok(backend) => backend,
+        Err(source) => {
+            warn!(error = %source, "KDE Wayland window-control probe failed");
+            None
+        }
+    };
     let backend_selection = select_backend(
         requested_window_backend,
         &desktop_environment,
-        BackendAvailability::default(),
+        BackendAvailability {
+            kde_wayland: kde_window_control.is_some(),
+            x11: false,
+        },
     );
     info!(
         requested = backend_selection.requested.as_str(),
@@ -250,7 +265,11 @@ fn run_application(
         reason = %backend_selection.reason,
         "selected window backend"
     );
-    let window_control = UnsupportedWindowControl::new(backend_selection);
+    let window_control: Box<dyn WindowControl> =
+        match (backend_selection.selected, kde_window_control) {
+            (WindowBackend::KdeWayland, Some(backend)) => Box::new(backend),
+            _ => Box::new(UnsupportedWindowControl::new(backend_selection)),
+        };
     let launcher = ProcessLauncher;
     let mut launcher_children = Vec::new();
 
@@ -350,7 +369,8 @@ fn run_application(
         while let Ok(action) = tray_action_rx.try_recv() {
             match action {
                 TrayAction::OpenThunderbird => {
-                    match open_thunderbird(&window_control, &launcher, &config.thunderbird) {
+                    match open_thunderbird(window_control.as_ref(), &launcher, &config.thunderbird)
+                    {
                         Ok(OpenOutcome::ActivatedExisting) => {
                             info!("activated an existing Thunderbird window");
                         }

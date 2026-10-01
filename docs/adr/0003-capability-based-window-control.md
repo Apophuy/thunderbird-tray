@@ -18,8 +18,9 @@ Thunderbird as one literal argument.
 ## Decision
 
 Window integration is represented by a `WindowControl` capability boundary.
-Activate, hide, and show are independent capabilities. Operations return typed
-outcomes and errors; an unsupported operation never reports success.
+Detect, activate, hide, and show are independent capabilities. Operations
+return typed outcomes and errors; an unsupported operation never reports
+success.
 
 Backend selection combines the requested `auto`, `kde-wayland`, `x11`, or
 `none` value with desktop environment hints and runtime backend availability.
@@ -48,7 +49,7 @@ reaps completed launcher processes.
 - Explicit but unavailable backends degrade to `none` with an observable
   reason, preserving unread monitoring and tray behavior.
 - Arguments such as profile paths remain literal process arguments.
-- Stage 7 can implement KDE activation without coupling KWin to core state,
+- KDE activation can be implemented without coupling KWin to core state,
   Native Messaging, or the tray presentation model.
 
 ## Alternatives considered

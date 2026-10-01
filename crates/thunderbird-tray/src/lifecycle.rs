@@ -25,8 +25,15 @@ pub struct AttachedNativeStream {
     pub completion_guard: UnixStream,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WindowActionReport {
+    pub request_id: String,
+    pub outcome: String,
+}
+
 struct LifecycleInterface {
     attached_streams: Sender<AttachedNativeStream>,
+    window_reports: Sender<WindowActionReport>,
     session_active: Arc<AtomicBool>,
 }
 
@@ -61,6 +68,24 @@ impl LifecycleInterface {
 
         Ok(OwnedFd::from(std::os::fd::OwnedFd::from(completion_waiter)))
     }
+
+    fn report_window_action(&self, request_id: String, outcome: String) -> zbus::fdo::Result<()> {
+        if request_id.len() > 64 || outcome.len() > 32 {
+            return Err(zbus::fdo::Error::InvalidArgs(
+                "window action report is too large".to_owned(),
+            ));
+        }
+        self.window_reports
+            .send(WindowActionReport {
+                request_id,
+                outcome,
+            })
+            .map_err(|_| {
+                zbus::fdo::Error::Failed(
+                    "the primary thunderbird-tray process is shutting down".to_owned(),
+                )
+            })
+    }
 }
 
 pub struct LifecycleService {
@@ -69,10 +94,14 @@ pub struct LifecycleService {
 }
 
 impl LifecycleService {
-    pub fn claim(attached_streams: Sender<AttachedNativeStream>) -> Result<Self, ClaimError> {
+    pub fn claim(
+        attached_streams: Sender<AttachedNativeStream>,
+        window_reports: Sender<WindowActionReport>,
+    ) -> Result<Self, ClaimError> {
         let session_active = Arc::new(AtomicBool::new(false));
         let interface = LifecycleInterface {
             attached_streams,
+            window_reports,
             session_active: Arc::clone(&session_active),
         };
         let connection = Builder::session()
@@ -187,9 +216,11 @@ mod tests {
     #[test]
     fn only_one_native_stream_is_accepted_until_the_session_finishes() {
         let (attached_tx, attached_rx) = mpsc::channel();
+        let (window_tx, _window_rx) = mpsc::channel();
         let session_active = Arc::new(AtomicBool::new(false));
         let interface = LifecycleInterface {
             attached_streams: attached_tx,
+            window_reports: window_tx,
             session_active: Arc::clone(&session_active),
         };
 
@@ -229,5 +260,38 @@ mod tests {
         assert!(session_active.load(Ordering::Acquire));
         drop(attached_rx.recv().unwrap());
         drop(reconnected_completion);
+    }
+
+    #[test]
+    fn window_action_reports_are_bounded_and_forwarded() {
+        let (attached_tx, _attached_rx) = mpsc::channel();
+        let (window_tx, window_rx) = mpsc::channel();
+        let interface = LifecycleInterface {
+            attached_streams: attached_tx,
+            window_reports: window_tx,
+            session_active: Arc::new(AtomicBool::new(false)),
+        };
+
+        interface
+            .report_window_action("123-4".to_owned(), "activated".to_owned())
+            .unwrap();
+        assert_eq!(
+            window_rx.recv().unwrap(),
+            WindowActionReport {
+                request_id: "123-4".to_owned(),
+                outcome: "activated".to_owned(),
+            }
+        );
+
+        assert!(
+            interface
+                .report_window_action("x".repeat(65), "found".to_owned())
+                .is_err()
+        );
+        assert!(
+            interface
+                .report_window_action("123-5".to_owned(), "x".repeat(33))
+                .is_err()
+        );
     }
 }
