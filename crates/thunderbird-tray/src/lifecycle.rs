@@ -107,6 +107,10 @@ impl LifecycleInterface {
             )
         })
     }
+
+    fn hide_on_minimize_allowed(&self) -> bool {
+        true
+    }
 }
 
 pub struct LifecycleService {
@@ -418,5 +422,20 @@ mod tests {
 
         interface.configuration_changed().unwrap();
         configuration_rx.recv().unwrap();
+    }
+
+    #[test]
+    fn running_service_authorizes_the_kwin_minimize_monitor() {
+        let (attached_tx, _attached_rx) = mpsc::channel();
+        let (window_tx, _window_rx) = mpsc::channel();
+        let (configuration_tx, _configuration_rx) = mpsc::channel();
+        let interface = LifecycleInterface {
+            attached_streams: attached_tx,
+            window_reports: window_tx,
+            configuration_changes: configuration_tx,
+            session_active: Arc::new(AtomicBool::new(false)),
+        };
+
+        assert!(interface.hide_on_minimize_allowed());
     }
 }

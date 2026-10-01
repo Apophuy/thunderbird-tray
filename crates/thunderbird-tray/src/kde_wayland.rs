@@ -29,6 +29,7 @@ const KWIN_SERVICE: &str = "org.kde.KWin";
 const SCRIPTING_PATH: &str = "/Scripting";
 const SCRIPTING_INTERFACE: &str = "org.kde.kwin.Scripting";
 const SCRIPT_INTERFACE: &str = "org.kde.kwin.Script";
+const MINIMIZE_MONITOR_PLUGIN: &str = "thunderbird-tray-minimize-monitor";
 const ACTION_TIMEOUT: Duration = Duration::from_secs(2);
 static NEXT_REQUEST: AtomicU64 = AtomicU64::new(1);
 
@@ -36,6 +37,7 @@ pub struct KdeWindowControl {
     connection: Connection,
     reports: Receiver<WindowActionReport>,
     runtime_directory: PathBuf,
+    minimize_monitor_loaded: bool,
 }
 
 impl KdeWindowControl {
@@ -72,11 +74,13 @@ impl KdeWindowControl {
                 source,
             },
         )?;
+        install_minimize_monitor(&connection, &runtime_directory)?;
 
         Ok(Some(Self {
             connection,
             reports,
             runtime_directory,
+            minimize_monitor_loaded: true,
         }))
     }
 
@@ -155,6 +159,30 @@ impl KdeWindowControl {
             backend: WindowBackend::KdeWayland,
             operation,
             message: source.to_string(),
+        }
+    }
+}
+
+impl Drop for KdeWindowControl {
+    fn drop(&mut self) {
+        if !self.minimize_monitor_loaded {
+            return;
+        }
+        let result = Proxy::new(
+            &self.connection,
+            KWIN_SERVICE,
+            SCRIPTING_PATH,
+            SCRIPTING_INTERFACE,
+        )
+        .and_then(|scripting| {
+            scripting.call::<_, _, bool>("unloadScript", &MINIMIZE_MONITOR_PLUGIN)
+        });
+        match result {
+            Ok(true) => {}
+            Ok(false) => tracing::warn!("KWin minimize monitor was already unloaded"),
+            Err(source) => {
+                tracing::warn!(error = %source, "could not unload KWin minimize monitor")
+            }
         }
     }
 }
@@ -321,6 +349,106 @@ fn write_script(path: &Path, contents: &str) -> Result<(), KdeError> {
         })
 }
 
+fn install_minimize_monitor(
+    connection: &Connection,
+    runtime_directory: &Path,
+) -> Result<(), KdeError> {
+    let scripting = Proxy::new(
+        connection,
+        KWIN_SERVICE,
+        SCRIPTING_PATH,
+        SCRIPTING_INTERFACE,
+    )?;
+    let _ = scripting.call::<_, _, bool>("unloadScript", &MINIMIZE_MONITOR_PLUGIN)?;
+
+    let path = runtime_directory.join(format!("{MINIMIZE_MONITOR_PLUGIN}.js"));
+    match fs::remove_file(&path) {
+        Ok(()) => {}
+        Err(source) if source.kind() == io::ErrorKind::NotFound => {}
+        Err(source) => {
+            return Err(KdeError::ScriptWrite {
+                path: path.clone(),
+                source,
+            });
+        }
+    }
+    write_script(&path, &render_minimize_monitor())?;
+    let path_text = path
+        .to_str()
+        .ok_or_else(|| KdeError::NonUtf8Path(path.clone()))?;
+    let script_id: i32 = match scripting.call("loadScript", &(path_text, MINIMIZE_MONITOR_PLUGIN)) {
+        Ok(id) => id,
+        Err(source) => {
+            let _ = fs::remove_file(&path);
+            return Err(KdeError::Bus(source));
+        }
+    };
+    let result = (|| {
+        let script_path = format!("/Scripting/Script{script_id}");
+        let script = Proxy::new(
+            connection,
+            KWIN_SERVICE,
+            script_path.as_str(),
+            SCRIPT_INTERFACE,
+        )?;
+        let _: () = script.call("run", &())?;
+        Ok::<(), KdeError>(())
+    })();
+    if result.is_err() {
+        let _ = scripting.call::<_, _, bool>("unloadScript", &MINIMIZE_MONITOR_PLUGIN);
+    }
+    if let Err(source) = fs::remove_file(&path) {
+        tracing::warn!(path = %path.display(), error = %source, "could not remove generated KWin monitor script");
+    }
+    result
+}
+
+fn render_minimize_monitor() -> String {
+    format!(
+        r#"// SPDX-License-Identifier: GPL-3.0-only
+(function () {{
+    function isThunderbird(window) {{
+        const desktopFile = String(window.desktopFileName || "").toLowerCase();
+        const resourceClass = String(window.resourceClass || "").toLowerCase();
+        return desktopFile === "thunderbird" ||
+            desktopFile.endsWith("/thunderbird.desktop") ||
+            resourceClass === "thunderbird" ||
+            resourceClass === "thunderbird-default";
+    }}
+
+    function hideFromTaskbarWhenAllowed(window) {{
+        if (!window.minimized || window.skipTaskbar) {{
+            return;
+        }}
+        callDBus("{}", "{}", "{}", "HideOnMinimizeAllowed",
+            function (allowed) {{
+                if (allowed === true && window.minimized) {{
+                    window.skipTaskbar = true;
+                }}
+            }});
+    }}
+
+    function watch(window) {{
+        if (!isThunderbird(window)) {{
+            return;
+        }}
+        window.minimizedChanged.connect(function () {{
+            hideFromTaskbarWhenAllowed(window);
+        }});
+        hideFromTaskbarWhenAllowed(window);
+    }}
+
+    const windows = workspace.stackingOrder;
+    for (let index = 0; index < windows.length; ++index) {{
+        watch(windows[index]);
+    }}
+    workspace.windowAdded.connect(watch);
+}})();
+"#,
+        APPLICATION_ID, LIFECYCLE_OBJECT_PATH, LIFECYCLE_INTERFACE,
+    )
+}
+
 fn render_script(action: KdeAction, request_id: &str) -> String {
     format!(
         r#"// SPDX-License-Identifier: GPL-3.0-only
@@ -466,6 +594,18 @@ mod tests {
         assert!(hide_script.contains("target.skipTaskbar = true"));
         assert!(hide_script.contains("target.minimized = true"));
         assert!(hide_script.contains("target.skipTaskbar && target.minimized"));
+    }
+
+    #[test]
+    fn minimize_monitor_authorizes_taskbar_hiding_through_the_live_service() {
+        let script = render_minimize_monitor();
+        assert!(script.contains("workspace.stackingOrder"));
+        assert!(script.contains("workspace.windowAdded.connect(watch)"));
+        assert!(script.contains("window.minimizedChanged.connect"));
+        assert!(script.contains("window.skipTaskbar = true"));
+        assert!(script.contains("allowed === true && window.minimized"));
+        assert!(script.contains(APPLICATION_ID));
+        assert!(script.contains("HideOnMinimizeAllowed"));
     }
 
     #[test]

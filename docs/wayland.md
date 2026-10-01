@@ -48,6 +48,10 @@ globally, no root permission is needed, and no network socket is opened.
   window. If no window exists, it launches the configured Thunderbird command.
 - **Hide Thunderbird** sets both `skipTaskbar` and `minimized`. The window stays
   alive for mail monitoring but disappears from KDE's task manager.
+- Minimizing a Thunderbird window with its title-bar button performs the same
+  task-manager hiding while `thunderbird-tray` is running. A small KWin monitor
+  asks the live application service for authorization before changing the
+  window, so a stale script left by a crash cannot keep affecting Thunderbird.
 - **Show/Open** clears `skipTaskbar`, restores the selected window, and makes it
   active.
 - **Start hidden** is opt-in. An autostarted service launches Thunderbird and

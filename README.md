@@ -56,7 +56,7 @@ uninstall commands.
 ```sh
 ./scripts/build-release.sh
 ./scripts/check-release.sh
-sudo apt install ./dist/release/thunderbird-tray_0.1.5_amd64.deb
+sudo apt install ./dist/release/thunderbird-tray_0.1.7_amd64.deb
 ```
 
 Then install
@@ -77,10 +77,11 @@ the tray, or run `thunderbird-tray settings`. The resizable window offers
 system, light, and dark themes. It can also install a per-user autostart entry,
 launch Thunderbird with the service, and start Thunderbird hidden in the tray.
 These startup options are disabled by default.
-Apply saves settings and starts the current tray service when needed while
-keeping the window open. Done does the same and closes after success; Cancel
-closes without saving current edits. Autostart separately controls future
-sign-ins.
+Apply is enabled only for pending changes; it saves settings and starts the
+current tray service when needed while keeping the window open. Done applies
+pending changes and closes after success, or simply closes when nothing changed;
+Cancel closes without saving current edits. Autostart separately controls
+future sign-ins.
 
 Run `thunderbird-tray doctor` for a localized, privacy-preserving summary of the
 effective configuration and desktop integration. It checks the session bus,
@@ -111,6 +112,9 @@ On supported KDE Plasma Wayland sessions, **Hide Thunderbird** minimizes the
 window and removes it from the task manager without stopping mail monitoring.
 The public Thunderbird/KWin interfaces cannot intercept the title-bar close
 button before the window closes, so the explicit Hide action is used instead.
+The normal minimize button also removes the window from the task manager while
+`thunderbird-tray` is running; use the tray menu or double activation to restore
+it.
 
 The icons are embedded at multiple sizes, so the core tray UI does not depend
 on an installed icon theme. Plasma renders the menu itself and supplies native

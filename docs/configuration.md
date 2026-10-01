@@ -87,10 +87,12 @@ mail, account, unread, Thunderbird argument, or credential data.
 
 `settings` opens the full graphical settings window. Apply saves the
 configuration, starts the tray service for the current session when it is not
-already running, and asks it to reload. Apply keeps the window open and reports
-the result; Done performs the same operation and closes only after success;
-Cancel closes without saving current edits. The autostart checkbox independently
-controls whether a new service starts on future sign-ins.
+already running, and asks it to reload. Apply is enabled only when the form
+differs from the last successfully applied state; it keeps the window open and
+reports the result. Done applies pending changes and closes after success, or
+simply closes when nothing changed. Cancel closes without saving current edits.
+The autostart checkbox independently controls whether a new service starts on
+future sign-ins.
 
 When Thunderbird starts the binary as a Native Messaging host, Mozilla supplies
 the native-manifest path and initiating extension ID as two positional process

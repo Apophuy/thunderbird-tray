@@ -2,6 +2,7 @@
 
 //! Native settings window backed by the same strict TOML configuration.
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use slint::{ComponentHandle, SharedString};
@@ -59,14 +60,27 @@ slint::slint! {
         in-out property <string> thunderbird-command;
         in-out property <string> status-message;
         in-out property <bool> status-is-error;
+        in-out property <bool> apply-enabled;
 
         callback apply(bool);
         callback cancel();
+        callback edited();
+
+        changed autostart-enabled => { root.edited(); }
+        changed start-thunderbird => { root.edited(); }
+        changed start-minimized => { root.edited(); }
+        changed notifications-enabled => { root.edited(); }
+        changed show-unread-count => { root.edited(); }
+        changed hide-when-zero => { root.edited(); }
+        changed language-index => { root.edited(); }
+        changed backend-index => { root.edited(); }
+        changed thunderbird-command => { root.edited(); }
 
         changed theme-index => {
             Palette.color-scheme = root.theme-index == 1 ? ColorScheme.light
                 : root.theme-index == 2 ? ColorScheme.dark
                 : ColorScheme.unknown;
+            root.edited();
         }
 
         VerticalLayout {
@@ -170,6 +184,7 @@ slint::slint! {
                 }
                 Button {
                     text: root.apply-label;
+                    enabled: root.apply-enabled;
                     clicked => { root.apply(false); }
                 }
                 Button {
@@ -250,6 +265,20 @@ pub fn run(
     window.set_theme_index(theme_index(config.general.theme));
     window.set_backend_index(backend_index(config.window.backend));
     window.set_thunderbird_command(config.thunderbird.command.clone().into());
+    window.set_apply_enabled(false);
+
+    let saved_values = Rc::new(RefCell::new(SettingsValues::from_window(&window)));
+
+    let weak = window.as_weak();
+    let edited_saved_values = Rc::clone(&saved_values);
+    window.on_edited(move || {
+        let Some(window) = weak.upgrade() else {
+            return;
+        };
+        let changed = SettingsValues::from_window(&window) != *edited_saved_values.borrow();
+        window.set_apply_enabled(changed);
+        window.set_status_message(SharedString::default());
+    });
 
     window.on_cancel(move || {
         let _ = slint::quit_event_loop();
@@ -257,25 +286,24 @@ pub fn run(
 
     let weak = window.as_weak();
     let saved_config = config.clone();
+    let applied_saved_values = Rc::clone(&saved_values);
     window.on_apply(move |close_after_success| {
         let Some(window) = weak.upgrade() else {
             return;
         };
+        let current_values = SettingsValues::from_window(&window);
+        if current_values == *applied_saved_values.borrow() {
+            if close_after_success {
+                let _ = slint::quit_event_loop();
+            }
+            return;
+        }
         window.set_status_message(SharedString::default());
         let mut updated = saved_config.clone();
-        updated.general.start_thunderbird = window.get_start_thunderbird();
-        updated.general.start_minimized =
-            window.get_start_thunderbird() && window.get_start_minimized();
-        updated.general.notifications = window.get_notifications_enabled();
-        updated.general.language = language_from_index(window.get_language_index());
-        updated.general.theme = theme_from_index(window.get_theme_index());
-        updated.tray.show_unread_count = window.get_show_unread_count();
-        updated.tray.hide_when_zero = window.get_hide_when_zero();
-        updated.thunderbird.command = window.get_thunderbird_command().to_string();
-        updated.window.backend = backend_from_index(window.get_backend_index());
+        current_values.write_to_config(&mut updated);
 
         let previous_autostart = autostart.is_enabled();
-        let requested_autostart = window.get_autostart_enabled();
+        let requested_autostart = current_values.autostart_enabled;
         let result = autostart
             .set_enabled(requested_autostart)
             .map_err(SettingsError::Autostart)
@@ -301,6 +329,8 @@ pub fn run(
 
         window.set_status_is_error(false);
         window.set_status_message(strings.applied.into());
+        *applied_saved_values.borrow_mut() = current_values;
+        window.set_apply_enabled(false);
         if close_after_success {
             let _ = slint::quit_event_loop();
         }
@@ -308,6 +338,69 @@ pub fn run(
 
     window.run()?;
     Ok(())
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct SettingsValues {
+    autostart_enabled: bool,
+    start_thunderbird: bool,
+    start_minimized: bool,
+    notifications_enabled: bool,
+    show_unread_count: bool,
+    hide_when_zero: bool,
+    language: LanguageMode,
+    theme: ThemeMode,
+    backend: WindowBackend,
+    thunderbird_command: String,
+}
+
+impl SettingsValues {
+    fn from_window(window: &SettingsWindow) -> Self {
+        let start_thunderbird = window.get_start_thunderbird();
+        Self {
+            autostart_enabled: window.get_autostart_enabled(),
+            start_thunderbird,
+            start_minimized: start_thunderbird && window.get_start_minimized(),
+            notifications_enabled: window.get_notifications_enabled(),
+            show_unread_count: window.get_show_unread_count(),
+            hide_when_zero: window.get_hide_when_zero(),
+            language: language_from_index(window.get_language_index()),
+            theme: theme_from_index(window.get_theme_index()),
+            backend: backend_from_index(window.get_backend_index()),
+            thunderbird_command: window.get_thunderbird_command().to_string(),
+        }
+    }
+
+    #[cfg(test)]
+    fn from_config(config: &Config, autostart_enabled: bool) -> Self {
+        Self {
+            autostart_enabled,
+            start_thunderbird: config.general.start_thunderbird,
+            start_minimized: config.general.start_thunderbird && config.general.start_minimized,
+            notifications_enabled: config.general.notifications,
+            show_unread_count: config.tray.show_unread_count,
+            hide_when_zero: config.tray.hide_when_zero,
+            language: config.general.language,
+            theme: config.general.theme,
+            backend: config.window.backend,
+            thunderbird_command: config.thunderbird.command.clone(),
+        }
+    }
+
+    fn write_to_config(&self, config: &mut Config) {
+        config.general.start_thunderbird = self.start_thunderbird;
+        config.general.start_minimized = self.start_minimized;
+        config.general.notifications = self.notifications_enabled;
+        config.general.language = self.language;
+        config.general.theme = self.theme;
+        config.tray.show_unread_count = self.show_unread_count;
+        config.tray.hide_when_zero = self.hide_when_zero;
+        config
+            .thunderbird
+            .command
+            .clone_from(&self.thunderbird_command);
+        config.window.backend = self.backend;
+    }
 }
 
 fn language_index(language: LanguageMode) -> i32 {
@@ -504,5 +597,34 @@ mod tests {
             (russian.cancel, russian.apply, russian.done),
             ("Отмена", "Применить", "Готово")
         );
+    }
+
+    #[test]
+    fn settings_snapshot_detects_real_changes_and_writes_them_back() {
+        let config = Config::default();
+        let saved = SettingsValues::from_config(&config, false);
+        assert_eq!(saved, SettingsValues::from_config(&config, false));
+
+        let mut changed = saved.clone();
+        changed.show_unread_count = !changed.show_unread_count;
+        changed.autostart_enabled = true;
+        assert_ne!(changed, saved);
+
+        let mut updated = config;
+        changed.write_to_config(&mut updated);
+        assert_eq!(updated.tray.show_unread_count, changed.show_unread_count);
+        assert_eq!(updated.general.start_thunderbird, changed.start_thunderbird);
+    }
+
+    #[test]
+    fn hidden_start_is_ignored_while_thunderbird_startup_is_disabled() {
+        let mut config = Config::default();
+        config.general.start_thunderbird = false;
+        config.general.start_minimized = true;
+
+        let values = SettingsValues::from_config(&config, false);
+        assert!(!values.start_minimized);
+        values.write_to_config(&mut config);
+        assert!(!config.general.start_minimized);
     }
 }

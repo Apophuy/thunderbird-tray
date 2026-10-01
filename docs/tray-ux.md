@@ -53,6 +53,11 @@ protocol does not carry a click count, so the application recognizes the pair
 of `Activate` calls; a single primary activation performs no action. The native
 menu remains available from the context/right-click gesture.
 
+On KDE Plasma Wayland, minimizing Thunderbird from the title bar also removes
+it from the task manager while the tray service is running. The tray Open action
+or double activation restores the task-manager entry before activating the
+window.
+
 ## Accessibility and behavior
 
 - Use standard DBusMenu items, radio state, disabled state, and icon names so
@@ -73,8 +78,9 @@ menu remains available from the context/right-click gesture.
 The settings command opens a normal resizable window with General, Tray, and
 Thunderbird tabs. It exposes autostart, Thunderbird launch/start-hidden,
 notifications, language, system/light/dark appearance, unread badge behavior,
-command, and backend. Apply persists, starts or notifies the service, and keeps
-the window open with a result message. Done performs the same operation and
-closes only after success. Cancel closes without saving current edits. The
-window explicitly explains the close-button limitation
+command, and backend. Apply is enabled only when values differ from the last
+successfully applied state; it persists, starts or notifies the service, and
+keeps the window open with a result message. Done applies pending changes and
+closes after success, or closes immediately when nothing changed. Cancel closes
+without saving current edits. The window explicitly explains the close-button limitation
 instead of implying that a post-close event can keep Thunderbird alive.
