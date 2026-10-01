@@ -27,8 +27,10 @@ scheme selected from `system`, `light`, or `dark`. The saved TOML remains the
 single configuration source. Apply notifies the running D-Bus service to reload
 settings. If no service owns the application name yet, Apply starts a detached
 service with the same executable and configuration path first. The settings
-window stays open and displays the result. This current-session behavior is
-independent from XDG autostart, which controls future sign-ins.
+window has separate Cancel, Apply, and Done actions: Apply stays open and shows
+the result, Done closes only after a successful apply, and Cancel discards
+current unsaved edits. This current-session behavior is independent from XDG
+autostart, which controls future sign-ins.
 
 Slint's generated macro code needs to control its internal unsafe lint. The
 workspace therefore changes `unsafe_code` from `forbid` to `deny`: handwritten

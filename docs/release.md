@@ -35,7 +35,7 @@ Verify the release directory and install the package:
 
 ```sh
 sha256sum -c SHA256SUMS
-sudo apt install ./thunderbird-tray_0.1.4_amd64.deb
+sudo apt install ./thunderbird-tray_0.1.5_amd64.deb
 ```
 
 The package installs:

@@ -41,6 +41,7 @@ slint::slint! {
         in property <string> command-label;
         in property <string> backend-label;
         in property <string> apply-label;
+        in property <string> done-label;
         in property <string> cancel-label;
         in property <[string]> language-options;
         in property <[string]> theme-options;
@@ -59,7 +60,7 @@ slint::slint! {
         in-out property <string> status-message;
         in-out property <bool> status-is-error;
 
-        callback apply();
+        callback apply(bool);
         callback cancel();
 
         changed theme-index => {
@@ -169,8 +170,12 @@ slint::slint! {
                 }
                 Button {
                     text: root.apply-label;
+                    clicked => { root.apply(false); }
+                }
+                Button {
+                    text: root.done-label;
                     primary: true;
-                    clicked => { root.apply(); }
+                    clicked => { root.apply(true); }
                 }
             }
         }
@@ -207,6 +212,7 @@ pub fn run(
     window.set_command_label(strings.command.into());
     window.set_backend_label(strings.backend.into());
     window.set_apply_label(strings.apply.into());
+    window.set_done_label(strings.done.into());
     window.set_cancel_label(strings.cancel.into());
     window.set_language_options(
         Rc::new(slint::VecModel::from(vec![
@@ -251,7 +257,7 @@ pub fn run(
 
     let weak = window.as_weak();
     let saved_config = config.clone();
-    window.on_apply(move || {
+    window.on_apply(move |close_after_success| {
         let Some(window) = weak.upgrade() else {
             return;
         };
@@ -295,6 +301,9 @@ pub fn run(
 
         window.set_status_is_error(false);
         window.set_status_message(strings.applied.into());
+        if close_after_success {
+            let _ = slint::quit_event_loop();
+        }
     });
 
     window.run()?;
@@ -370,6 +379,7 @@ struct SettingsStrings {
     command: &'static str,
     backend: &'static str,
     apply: &'static str,
+    done: &'static str,
     cancel: &'static str,
     automatic: &'static str,
     theme_system: &'static str,
@@ -403,6 +413,7 @@ impl SettingsStrings {
                 command: "Thunderbird executable",
                 backend: "Window-control backend",
                 apply: "Apply",
+                done: "Done",
                 cancel: "Cancel",
                 automatic: "Automatic",
                 theme_system: "System",
@@ -432,6 +443,7 @@ impl SettingsStrings {
                 command: "Исполняемый файл Thunderbird",
                 backend: "Бэкенд управления окном",
                 apply: "Применить",
+                done: "Готово",
                 cancel: "Отмена",
                 automatic: "Автоматически",
                 theme_system: "Системная",
@@ -477,5 +489,20 @@ mod tests {
         for theme in [ThemeMode::System, ThemeMode::Light, ThemeMode::Dark] {
             assert_eq!(theme_from_index(theme_index(theme)), theme);
         }
+    }
+
+    #[test]
+    fn settings_actions_have_distinct_localized_labels() {
+        let english = SettingsStrings::new(Language::English);
+        assert_eq!(
+            (english.cancel, english.apply, english.done),
+            ("Cancel", "Apply", "Done")
+        );
+
+        let russian = SettingsStrings::new(Language::Russian);
+        assert_eq!(
+            (russian.cancel, russian.apply, russian.done),
+            ("Отмена", "Применить", "Готово")
+        );
     }
 }

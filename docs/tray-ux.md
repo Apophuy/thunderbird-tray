@@ -74,6 +74,7 @@ The settings command opens a normal resizable window with General, Tray, and
 Thunderbird tabs. It exposes autostart, Thunderbird launch/start-hidden,
 notifications, language, system/light/dark appearance, unread badge behavior,
 command, and backend. Apply persists, starts or notifies the service, and keeps
-the window open with a result message; Cancel closes without further changes.
-The window explicitly explains the close-button limitation
+the window open with a result message. Done performs the same operation and
+closes only after success. Cancel closes without saving current edits. The
+window explicitly explains the close-button limitation
 instead of implying that a post-close event can keep Thunderbird alive.
