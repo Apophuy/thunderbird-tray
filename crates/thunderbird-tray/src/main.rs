@@ -18,6 +18,7 @@ use thunderbird_tray::kde_wayland::KdeWindowControl;
 use thunderbird_tray::lifecycle::{
     AttachedNativeStream, ClaimError, LifecycleClient, LifecycleService, WindowActionReport,
 };
+use thunderbird_tray::native_manifest;
 use thunderbird_tray::sni::SniService;
 use thunderbird_tray::tray::{TrayAction, TrayModel};
 use thunderbird_tray::window::{
@@ -39,6 +40,28 @@ fn main() -> Result<()> {
         Localizer::new(resolve_language(LanguageMode::Auto, &locale_environment));
     let cli =
         Cli::parse_environment().map_err(|error| anyhow!(system_localizer.cli_error(&error)))?;
+    match cli.command {
+        Command::Help => return write_output(system_localizer.help()),
+        Command::Version => {
+            return write_output(concat!(
+                env!("CARGO_PKG_NAME"),
+                " ",
+                env!("CARGO_PKG_VERSION"),
+                "\n"
+            ));
+        }
+        Command::InstallNativeManifest => {
+            let path = native_manifest::install_default()
+                .map_err(|error| anyhow!(system_localizer.native_manifest_error(&error)))?;
+            return write_output(&system_localizer.native_manifest_installed(&path));
+        }
+        Command::UninstallNativeManifest => {
+            let (path, removed) = native_manifest::remove_default()
+                .map_err(|error| anyhow!(system_localizer.native_manifest_error(&error)))?;
+            return write_output(&system_localizer.native_manifest_removed(&path, removed));
+        }
+        Command::Run | Command::Doctor | Command::Service => {}
+    }
     if cli.command == Command::Service
         && std::env::var_os(DETACH_SERVICE_ENVIRONMENT).as_deref()
             == Some(std::ffi::OsStr::new("1"))
@@ -55,22 +78,10 @@ fn main() -> Result<()> {
     let localizer = Localizer::new(language);
     let requested_window_backend = cli.window_backend.unwrap_or(config.window.backend);
 
-    match cli.command {
-        Command::Help => return write_output(localizer.help()),
-        Command::Version => {
-            return write_output(concat!(
-                env!("CARGO_PKG_NAME"),
-                " ",
-                env!("CARGO_PKG_VERSION"),
-                "\n"
-            ));
-        }
-        Command::Doctor => {
-            let report =
-                DoctorReport::collect(config_source.path(), &config, cli.window_backend, language);
-            return write_output(&report.render(localizer));
-        }
-        Command::Run | Command::Service => {}
+    if cli.command == Command::Doctor {
+        let report =
+            DoctorReport::collect(config_source.path(), &config, cli.window_backend, language);
+        return write_output(&report.render(localizer));
     }
 
     tracing_subscriber::fmt()

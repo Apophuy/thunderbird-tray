@@ -9,6 +9,7 @@ pub mod doctor;
 pub mod i18n;
 pub mod kde_wayland;
 pub mod lifecycle;
+pub mod native_manifest;
 pub mod sni;
 pub mod tray;
 mod tray_icons;

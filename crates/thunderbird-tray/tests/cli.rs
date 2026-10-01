@@ -89,3 +89,13 @@ fn internal_service_mode_is_distinct_from_native_launch() {
     assert_eq!(cli.command, Command::Service);
     assert!(cli.native_launch.is_none());
 }
+
+#[test]
+fn native_manifest_install_is_an_explicit_command() {
+    let cli = Cli::parse_from(["thunderbird-tray", "install-native-manifest"]).unwrap();
+    assert_eq!(cli.command, Command::InstallNativeManifest);
+    assert!(cli.native_launch.is_none());
+
+    let cli = Cli::parse_from(["thunderbird-tray", "uninstall-native-manifest"]).unwrap();
+    assert_eq!(cli.command, Command::UninstallNativeManifest);
+}

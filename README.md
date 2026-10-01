@@ -41,6 +41,26 @@ the current identifier status. Configuration and CLI options are documented in
 its compatibility boundary are described in [the Wayland guide](docs/wayland.md).
 Development setup does not require root access.
 
+## Install
+
+The primary release artifact is a Debian package. It installs the application
+under `/opt/thunderbird-tray`, exposes `thunderbird-tray` through `/usr/bin`, and
+registers the Native Messaging host system-wide. Install the packaged XPI from
+Thunderbird's Add-ons Manager; the package never edits a Thunderbird profile.
+A rootless portable bundle is also available. See the
+[release and installation guide](docs/release.md) for install, upgrade, and
+uninstall commands.
+
+```sh
+./scripts/build-release.sh
+./scripts/check-release.sh
+sudo apt install ./dist/release/thunderbird-tray_0.1.1_amd64.deb
+```
+
+Then install
+`/opt/thunderbird-tray/share/thunderbird-tray/thunderbird-tray.xpi` through
+**Add-ons and Themes → Extensions → Install Add-on From File…** in Thunderbird.
+
 ## Configuration
 
 The default path is
@@ -80,6 +100,15 @@ name. Closing Thunderbird changes the icon to disconnected without discarding
 the tray process; starting Thunderbird again performs a new handshake and
 replaces the display with a fresh Inbox snapshot. Duplicate starts do not
 create duplicate tray items, and Plasma shell restarts are recoverable.
+
+## Troubleshooting
+
+Run `thunderbird-tray doctor` for the effective integration status and
+`thunderbird-tray --log-level debug` for detailed stderr diagnostics. If the
+extension does not connect, verify the Native Messaging manifest and installed
+binary reported by `doctor`. If the icon is absent, check that the desktop has
+a StatusNotifierItem host. See the [release guide](docs/release.md) and
+[Wayland guide](docs/wayland.md) for detailed checks and known limitations.
 
 ## Privacy
 

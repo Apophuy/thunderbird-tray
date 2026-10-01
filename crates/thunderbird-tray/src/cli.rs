@@ -18,6 +18,8 @@ pub enum Command {
     Doctor,
     Help,
     Version,
+    InstallNativeManifest,
+    UninstallNativeManifest,
     /// Internal long-lived process started by a Native Messaging launcher.
     Service,
 }
@@ -119,6 +121,12 @@ impl Cli {
                 Some("--version" | "-V") => set_command(&mut cli, Command::Version)?,
                 Some("--service") => set_command(&mut cli, Command::Service)?,
                 Some("doctor") => set_command(&mut cli, Command::Doctor)?,
+                Some("install-native-manifest") => {
+                    set_command(&mut cli, Command::InstallNativeManifest)?
+                }
+                Some("uninstall-native-manifest") => {
+                    set_command(&mut cli, Command::UninstallNativeManifest)?
+                }
                 _ => return Err(CliError::UnknownArgument(argument)),
             }
         }

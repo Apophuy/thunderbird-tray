@@ -4,6 +4,7 @@
 
 use std::env;
 use std::ffi::OsString;
+use std::path::Path;
 
 use crate::cli::{CliError, display_os};
 use crate::config::{ConfigError, LanguageMode};
@@ -100,13 +101,13 @@ impl Localizer {
         match self.language {
             Language::English => {
                 "thunderbird-tray — Linux tray companion for Thunderbird\n\n\
-Usage: thunderbird-tray [OPTIONS] [doctor]\n\n\
+Usage: thunderbird-tray [OPTIONS] [doctor|install-native-manifest|uninstall-native-manifest]\n\n\
 Options:\n  --config <PATH>\n  --window-backend <auto|kde-wayland|x11|none>\n  \
 --log-level <trace|debug|info|warn|error>\n  -h, --help\n  -V, --version\n"
             }
             Language::Russian => {
                 "thunderbird-tray — дополнение Thunderbird для системного трея Linux\n\n\
-Использование: thunderbird-tray [ПАРАМЕТРЫ] [doctor]\n\n\
+Использование: thunderbird-tray [ПАРАМЕТРЫ] [doctor|install-native-manifest|uninstall-native-manifest]\n\n\
 Параметры:\n  --config <ПУТЬ>\n  --window-backend <auto|kde-wayland|x11|none>\n  \
 --log-level <trace|debug|info|warn|error>\n  -h, --help\n  -V, --version\n"
             }
@@ -217,6 +218,49 @@ Options:\n  --config <PATH>\n  --window-backend <auto|kde-wayland|x11|none>\n  \
         match self.language {
             Language::English => format!("native messaging host failed: {error}"),
             Language::Russian => format!("ошибка Native Messaging: {error}"),
+        }
+    }
+
+    pub fn native_manifest_error(self, error: &impl std::fmt::Display) -> String {
+        match self.language {
+            Language::English => format!("could not manage Native Messaging manifest: {error}"),
+            Language::Russian => {
+                format!("не удалось изменить манифест Native Messaging: {error}")
+            }
+        }
+    }
+
+    pub fn native_manifest_installed(self, path: &Path) -> String {
+        match self.language {
+            Language::English => {
+                format!("Installed Native Messaging manifest: {}\n", path.display())
+            }
+            Language::Russian => {
+                format!("Манифест Native Messaging установлен: {}\n", path.display())
+            }
+        }
+    }
+
+    pub fn native_manifest_removed(self, path: &Path, removed: bool) -> String {
+        match (self.language, removed) {
+            (Language::English, true) => {
+                format!("Removed Native Messaging manifest: {}\n", path.display())
+            }
+            (Language::English, false) => {
+                format!(
+                    "Native Messaging manifest was not installed: {}\n",
+                    path.display()
+                )
+            }
+            (Language::Russian, true) => {
+                format!("Манифест Native Messaging удалён: {}\n", path.display())
+            }
+            (Language::Russian, false) => {
+                format!(
+                    "Манифест Native Messaging не был установлен: {}\n",
+                    path.display()
+                )
+            }
         }
     }
 

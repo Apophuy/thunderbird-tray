@@ -36,6 +36,7 @@ fn main() {
         "nativeHostName",
         "THUNDERBIRD_TRAY_NATIVE_HOST_NAME",
     );
+    export_identifier(&identifiers, "extensionId", "THUNDERBIRD_TRAY_EXTENSION_ID");
 }
 
 fn export_identifier(identifiers: &serde_json::Value, key: &str, environment_name: &str) {

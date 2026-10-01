@@ -1,0 +1,30 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-only
+
+set -eu
+
+prefix=${THUNDERBIRD_TRAY_PREFIX:-${HOME:?}/.local}
+data_home=${XDG_DATA_HOME:-${HOME:?}/.local/share}
+config_home=${XDG_CONFIG_HOME:-${HOME:?}/.config}
+binary_path=$prefix/bin/thunderbird-tray
+data_dir=$data_home/thunderbird-tray
+manifest_path=${HOME:?}/.mozilla/native-messaging-hosts/@NATIVE_HOST_NAME@.json
+
+if [ -x "$binary_path" ]; then
+    "$binary_path" uninstall-native-manifest
+elif [ -e "$manifest_path" ]; then
+    rm -- "$manifest_path"
+    echo "Removed Native Messaging manifest: $manifest_path"
+fi
+
+if [ -e "$binary_path" ]; then
+    rm -- "$binary_path"
+    echo "Removed thunderbird-tray: $binary_path"
+fi
+if [ -d "$data_dir" ]; then
+    rm -rf -- "$data_dir"
+    echo "Removed application data: $data_dir"
+fi
+
+echo "Thunderbird removes the extension separately in Add-ons Manager."
+echo "User configuration was retained at: $config_home/thunderbird-tray"

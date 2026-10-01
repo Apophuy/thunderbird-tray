@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "thunderbird-tray",
   "description": "Reports Thunderbird state to the thunderbird-tray Linux companion.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "browser_specific_settings": {
     "gecko": {
       "strict_min_version": "156.0"
