@@ -84,3 +84,5 @@ keeps the window open with a result message. Done applies pending changes and
 closes after success, or closes immediately when nothing changed. Cancel closes
 without saving current edits. The window explicitly explains the close-button limitation
 instead of implying that a post-close event can keep Thunderbird alive.
+Opening the settings application ensures the current-session tray service is
+running independently of Apply and without enabling autostart.

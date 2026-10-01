@@ -267,6 +267,11 @@ pub fn run(
     window.set_thunderbird_command(config.thunderbird.command.clone().into());
     window.set_apply_enabled(false);
 
+    if let Err(error) = ensure_tray_service(&config_source) {
+        window.set_status_is_error(true);
+        window.set_status_message(format!("{}: {error}", strings.apply_failed).into());
+    }
+
     let saved_values = Rc::new(RefCell::new(SettingsValues::from_window(&window)));
 
     let weak = window.as_weak();
@@ -338,6 +343,13 @@ pub fn run(
 
     window.run()?;
     Ok(())
+}
+
+fn ensure_tray_service(
+    config_source: &ConfigSource,
+) -> Result<(), crate::lifecycle::LifecycleError> {
+    let client = LifecycleClient::connect()?;
+    client.ensure_service_running(Some(config_source.path()))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

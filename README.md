@@ -56,7 +56,7 @@ uninstall commands.
 ```sh
 ./scripts/build-release.sh
 ./scripts/check-release.sh
-sudo apt install ./dist/release/thunderbird-tray_0.1.7_amd64.deb
+sudo apt install ./dist/release/thunderbird-tray_0.1.8_amd64.deb
 ```
 
 Then install
@@ -77,6 +77,8 @@ the tray, or run `thunderbird-tray settings`. The resizable window offers
 system, light, and dark themes. It can also install a per-user autostart entry,
 launch Thunderbird with the service, and start Thunderbird hidden in the tray.
 These startup options are disabled by default.
+Opening the settings application also ensures that the tray service is running
+for the current session; this does not enable autostart for future sign-ins.
 Apply is enabled only for pending changes; it saves settings and starts the
 current tray service when needed while keeping the window open. Done applies
 pending changes and closes after success, or simply closes when nothing changed;

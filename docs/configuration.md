@@ -94,6 +94,11 @@ simply closes when nothing changed. Cancel closes without saving current edits.
 The autostart checkbox independently controls whether a new service starts on
 future sign-ins.
 
+Opening the settings window ensures that the tray service is running before the
+window enters its event loop. This current-session launch is independent of the
+dirty state of the form, so disabling Apply cannot prevent the tray from being
+created.
+
 When Thunderbird starts the binary as a Native Messaging host, Mozilla supplies
 the native-manifest path and initiating extension ID as two positional process
 arguments. They are recognized as a separate launch context and are not user
