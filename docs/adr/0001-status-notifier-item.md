@@ -18,6 +18,12 @@ so tested implementation behavior matters alongside the protocol text.
 
 Use `ksni` 0.3.6 with its blocking API behind a local tray adapter.
 
+Select the `async-io` runtime explicitly for both `ksni` and direct `zbus`
+usage, with their default features disabled. The application entry point and
+all of its D-Bus adapters are synchronous. Enabling `zbus`'s `tokio` feature
+would make its internal task spawning require an ambient Tokio runtime even
+when the blocking API creates a runtime for individual calls.
+
 `ksni` implements both `org.kde.StatusNotifierItem` and
 `com.canonical.dbusmenu` over `zbus`, registers with the watcher, emits property
 and menu update signals, supports runtime updates and radio groups, and handles
@@ -46,6 +52,8 @@ enter core state or the Native Messaging protocol.
 - Linux desktop protocol code stays small and replaceable.
 - The blocking adapter runs its D-Bus service on a background thread, allowing
   the Native Messaging reader to remain synchronous for this stage.
+- Lifecycle, window-control, diagnostics, and tray D-Bus calls share the
+  `async-io` executor model and do not require an ambient Tokio runtime.
 - Unit tests target the pure presentation and action boundary without a session
   bus. A separate live Plasma check remains required.
 - `ksni` owns its generated per-process SNI bus name. The application's

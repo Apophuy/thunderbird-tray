@@ -1,6 +1,6 @@
 {
   "name": "thunderbird-tray-extension",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Thunderbird WebExtension for thunderbird-tray",
   "license": "GPL-3.0-only",
