@@ -68,6 +68,28 @@ fn backend_selection_combines_explicit_choice_hints_and_availability() {
 }
 
 #[test]
+fn unsupported_wayland_desktops_never_inherit_kde_or_x11_capabilities() {
+    for desktop in ["GNOME", "sway", "Hyprland", "wlroots"] {
+        let environment = environment(&[
+            ("XDG_SESSION_TYPE", "wayland"),
+            ("XDG_CURRENT_DESKTOP", desktop),
+            ("WAYLAND_DISPLAY", "wayland-0"),
+            ("DISPLAY", ":1"),
+        ]);
+        let selection = select_backend(
+            WindowBackend::Auto,
+            &environment,
+            BackendAvailability {
+                kde_wayland: true,
+                x11: true,
+            },
+        );
+        assert_eq!(selection.selected, WindowBackend::None, "{desktop}");
+        assert_eq!(selection.reason, SelectionReason::NoSupportedDesktop);
+    }
+}
+
+#[test]
 fn unsupported_backend_reports_each_missing_capability() {
     let selection = select_backend(
         WindowBackend::None,

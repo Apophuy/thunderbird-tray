@@ -7,6 +7,12 @@ showing on KDE Plasma Wayland with KWin 6.x. The Stage 7 implementation was
 tested with KWin 6.3.6. It does not use X11 or XWayland and does not claim
 compatibility with Plasma 5 or other Wayland compositors.
 
+GNOME, Sway, Hyprland, and other wlroots or unidentified Wayland sessions use
+the honest `none` window backend. The tray and unread pipeline remain active
+when session D-Bus and a StatusNotifierItem host are available, and Open
+Thunderbird falls back to the configured executable. No XWayland or
+compositor-specific command is used. See [Fallback desktops](fallbacks.md).
+
 KWin's documented JavaScript API supplies window enumeration and state. The
 session D-Bus methods used to load and run a script are
 compatibility-sensitive, so the application probes them on every start instead

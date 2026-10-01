@@ -39,29 +39,28 @@ pub struct KdeWindowControl {
 }
 
 impl KdeWindowControl {
+    pub fn is_available(environment: &DesktopEnvironment) -> Result<bool, KdeError> {
+        if !probe_environment(environment) {
+            return Ok(false);
+        }
+
+        let connection = Connection::session()?;
+        if !kwin_scripting_available(&connection)? {
+            return Ok(false);
+        }
+        runtime_directory()?;
+        Ok(true)
+    }
+
     pub fn connect(
         environment: &DesktopEnvironment,
         reports: Receiver<WindowActionReport>,
     ) -> Result<Option<Self>, KdeError> {
-        if !probe_environment(environment) {
+        if !Self::is_available(environment)? {
             return Ok(None);
         }
 
         let connection = Connection::session()?;
-        let dbus = zbus::blocking::fdo::DBusProxy::new(&connection)?;
-        let name = BusName::try_from(KWIN_SERVICE)?;
-        if !dbus.name_has_owner(name)? {
-            return Ok(None);
-        }
-
-        let scripting = Proxy::new(
-            &connection,
-            KWIN_SERVICE,
-            SCRIPTING_PATH,
-            SCRIPTING_INTERFACE,
-        )?;
-        let _: bool = scripting.call("isScriptLoaded", &"thunderbird-tray-probe")?;
-
         let runtime_directory = runtime_directory()?;
         fs::create_dir_all(&runtime_directory).map_err(|source| KdeError::RuntimeDirectory {
             path: runtime_directory.clone(),
@@ -158,6 +157,23 @@ impl KdeWindowControl {
             message: source.to_string(),
         }
     }
+}
+
+fn kwin_scripting_available(connection: &Connection) -> Result<bool, KdeError> {
+    let dbus = zbus::blocking::fdo::DBusProxy::new(connection)?;
+    let name = BusName::try_from(KWIN_SERVICE)?;
+    if !dbus.name_has_owner(name)? {
+        return Ok(false);
+    }
+
+    let scripting = Proxy::new(
+        connection,
+        KWIN_SERVICE,
+        SCRIPTING_PATH,
+        SCRIPTING_INTERFACE,
+    )?;
+    let _: bool = scripting.call("isScriptLoaded", &"thunderbird-tray-probe")?;
+    Ok(true)
 }
 
 impl WindowControl for KdeWindowControl {

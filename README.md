@@ -51,7 +51,14 @@ otherwise. See [`packaging/config.example.toml`](packaging/config.example.toml)
 for all initial options.
 
 Run `thunderbird-tray doctor` for a localized, privacy-preserving summary of the
-effective configuration. Use `thunderbird-tray --help` for CLI options.
+effective configuration and desktop integration. It checks the session bus,
+tray watcher, extension connection, selected backend, native manifest, and
+Thunderbird executable without reporting mail data. Use `thunderbird-tray
+--help` for CLI options.
+
+The default build has no X11 dependency. On a real X11 desktop, enable the
+optional EWMH backend with `cargo build -p thunderbird-tray --features x11`.
+See the [fallback support matrix](docs/fallbacks.md).
 
 ## Tray interface
 
@@ -88,8 +95,11 @@ the network.
 - Native detection, activation, hide, and show are supported on runtime-probed
   Plasma/KWin 6 Wayland sessions (tested with KWin 6.3.6). The KWin D-Bus
   script loader is compatibility-sensitive; failures degrade to process launch.
-- Optional X11 controls are planned for a later MVP stage. Other Wayland
-  compositors retain the tray and unread features without global window control.
+- X11 window controls are opt-in with the `x11` build feature and require an
+  EWMH-compliant window manager; live X11 desktop verification is still pending.
+- GNOME, Sway, Hyprland, and other Wayland compositors retain tray, unread, and
+  process-launch features without claiming global window control. Tray display
+  still requires a desktop StatusNotifierItem host.
 - Linux is the only supported platform; KDE Plasma Wayland is the first desktop
   target.
 

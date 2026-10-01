@@ -8,6 +8,7 @@ use std::ffi::OsString;
 use crate::cli::{CliError, display_os};
 use crate::config::{ConfigError, LanguageMode};
 use crate::core::TrayState;
+use crate::window::SelectionReason;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Language {
@@ -306,23 +307,112 @@ Options:\n  --config <PATH>\n  --window-backend <auto|kde-wayland|x11|none>\n  \
             Language::English => DoctorLabels {
                 config: "Configuration",
                 config_exists: "Configuration exists",
-                backend: "Window backend",
+                session_type: "Session type",
+                desktop: "Desktop",
+                session_bus: "Session D-Bus",
+                application_service: "Application service",
+                extension_connection: "Thunderbird extension connection",
+                status_notifier_watcher: "StatusNotifierWatcher",
+                kwin_service: "KWin service",
+                requested_backend: "Requested window backend",
+                selected_backend: "Selected window backend",
+                selection_reason: "Selection reason",
+                x11_feature: "X11 feature",
                 language_mode: "Language mode",
                 resolved_language: "Resolved language",
-                thunderbird_command: "Thunderbird command",
+                native_manifest: "Native Messaging manifest",
+                native_manifest_exists: "Native manifest exists",
+                thunderbird_executable: "Thunderbird executable",
                 yes: "yes",
                 no: "no",
+                available: "available",
+                unavailable: "unavailable",
+                running: "running",
+                not_running: "not running",
+                connected: "connected",
+                disconnected: "disconnected",
+                application_not_running: "application is not running",
+                unknown: "unknown",
+                enabled: "enabled",
+                disabled: "disabled",
+                actions: "Recommended actions",
+                action_session_bus: "Start the command inside a graphical user session with a session D-Bus.",
+                action_watcher: "Enable a desktop StatusNotifierItem host so the tray icon can be displayed.",
+                action_manifest: "Install the per-user Native Messaging manifest with scripts/dev-install.sh.",
+                action_executable: "Set thunderbird.command to an executable path or add Thunderbird to PATH.",
+                action_x11_feature: "Rebuild thunderbird-tray with --features x11 to enable X11 window control.",
             },
             Language::Russian => DoctorLabels {
                 config: "Конфигурация",
                 config_exists: "Конфигурация существует",
-                backend: "Оконный бэкенд",
+                session_type: "Тип сеанса",
+                desktop: "Рабочий стол",
+                session_bus: "Сеансовая шина D-Bus",
+                application_service: "Служба приложения",
+                extension_connection: "Соединение с расширением Thunderbird",
+                status_notifier_watcher: "StatusNotifierWatcher",
+                kwin_service: "Служба KWin",
+                requested_backend: "Запрошенный оконный бэкенд",
+                selected_backend: "Выбранный оконный бэкенд",
+                selection_reason: "Причина выбора",
+                x11_feature: "Компонент X11",
                 language_mode: "Режим языка",
                 resolved_language: "Выбранный язык",
-                thunderbird_command: "Команда Thunderbird",
+                native_manifest: "Манифест Native Messaging",
+                native_manifest_exists: "Манифест существует",
+                thunderbird_executable: "Исполняемый файл Thunderbird",
                 yes: "да",
                 no: "нет",
+                available: "доступно",
+                unavailable: "недоступно",
+                running: "запущена",
+                not_running: "не запущена",
+                connected: "подключено",
+                disconnected: "не подключено",
+                application_not_running: "приложение не запущено",
+                unknown: "неизвестно",
+                enabled: "включён",
+                disabled: "отключён",
+                actions: "Рекомендуемые действия",
+                action_session_bus: "Запустите команду в графическом сеансе пользователя с сеансовой шиной D-Bus.",
+                action_watcher: "Включите поддержку StatusNotifierItem в рабочем столе, чтобы отображалась иконка трея.",
+                action_manifest: "Установите пользовательский манифест Native Messaging с помощью scripts/dev-install.sh.",
+                action_executable: "Укажите исполняемый файл в thunderbird.command или добавьте Thunderbird в PATH.",
+                action_x11_feature: "Пересоберите thunderbird-tray с параметром --features x11 для управления окнами X11.",
             },
+        }
+    }
+
+    pub fn selection_reason(self, reason: SelectionReason) -> String {
+        match (self.language, reason) {
+            (Language::English, SelectionReason::Explicit) => "explicit configuration".to_owned(),
+            (Language::Russian, SelectionReason::Explicit) => {
+                "явно задано в конфигурации".to_owned()
+            }
+            (Language::English, SelectionReason::KdeWaylandDetected) => {
+                "KDE Plasma Wayland detected and runtime probe succeeded".to_owned()
+            }
+            (Language::Russian, SelectionReason::KdeWaylandDetected) => {
+                "обнаружен KDE Plasma Wayland, проверка возможностей успешна".to_owned()
+            }
+            (Language::English, SelectionReason::X11Detected) => {
+                "X11 session detected and EWMH runtime probe succeeded".to_owned()
+            }
+            (Language::Russian, SelectionReason::X11Detected) => {
+                "обнаружен сеанс X11, проверка EWMH успешна".to_owned()
+            }
+            (Language::English, SelectionReason::RequestedBackendUnavailable(backend)) => {
+                format!("{} backend is unavailable", backend.as_str())
+            }
+            (Language::Russian, SelectionReason::RequestedBackendUnavailable(backend)) => {
+                format!("бэкенд {} недоступен", backend.as_str())
+            }
+            (Language::English, SelectionReason::NoSupportedDesktop) => {
+                "no supported window-control backend detected".to_owned()
+            }
+            (Language::Russian, SelectionReason::NoSupportedDesktop) => {
+                "поддерживаемый бэкенд управления окнами не обнаружен".to_owned()
+            }
         }
     }
 }
@@ -360,10 +450,38 @@ pub struct TrayLabels {
 pub struct DoctorLabels {
     pub config: &'static str,
     pub config_exists: &'static str,
-    pub backend: &'static str,
+    pub session_type: &'static str,
+    pub desktop: &'static str,
+    pub session_bus: &'static str,
+    pub application_service: &'static str,
+    pub extension_connection: &'static str,
+    pub status_notifier_watcher: &'static str,
+    pub kwin_service: &'static str,
+    pub requested_backend: &'static str,
+    pub selected_backend: &'static str,
+    pub selection_reason: &'static str,
+    pub x11_feature: &'static str,
     pub language_mode: &'static str,
     pub resolved_language: &'static str,
-    pub thunderbird_command: &'static str,
+    pub native_manifest: &'static str,
+    pub native_manifest_exists: &'static str,
+    pub thunderbird_executable: &'static str,
     pub yes: &'static str,
     pub no: &'static str,
+    pub available: &'static str,
+    pub unavailable: &'static str,
+    pub running: &'static str,
+    pub not_running: &'static str,
+    pub connected: &'static str,
+    pub disconnected: &'static str,
+    pub application_not_running: &'static str,
+    pub unknown: &'static str,
+    pub enabled: &'static str,
+    pub disabled: &'static str,
+    pub actions: &'static str,
+    pub action_session_bus: &'static str,
+    pub action_watcher: &'static str,
+    pub action_manifest: &'static str,
+    pub action_executable: &'static str,
+    pub action_x11_feature: &'static str,
 }

@@ -45,9 +45,10 @@ arguments = ["--profile", "/home/user/Thunderbird Profile"]
 Window backend values are `auto`, `kde-wayland`, `x11`, and `none`. Selection
 combines the configured value with desktop hints and runtime backend
 availability. An unavailable explicit backend degrades honestly to `none`; it
-does not emulate successful window control. Stage 6 provides process launch and
-the `none` backend. KDE Wayland window operations arrive in Stage 7, with X11
-remaining an optional later fallback.
+does not emulate successful window control. KDE Plasma 6 Wayland support is in
+the default build. X11 support is opt-in at build time with `--features x11`;
+other Wayland desktops retain `none` while keeping tray, unread, and process
+launch behavior. See [the fallback support matrix](fallbacks.md).
 
 ## Command line
 
@@ -62,10 +63,12 @@ Options:
   -V, --version
 ```
 
-`doctor` currently reports the effective configuration path, whether it exists,
-the selected window backend, language mode and resolved language, and the
-configured Thunderbird command. It deliberately does not report mail, account,
-or unread data. More desktop checks will be added in Stage 8.
+`doctor` reports the session and desktop, relevant session D-Bus services,
+StatusNotifierWatcher, application/extension connection state, requested and
+selected backend plus reason, X11 feature state, Native Messaging manifest,
+and Thunderbird executable availability. It provides localized recommended
+actions for common failures. Home paths are abbreviated, and it never reports
+mail, account, unread, Thunderbird argument, or credential data.
 
 When Thunderbird starts the binary as a Native Messaging host, Mozilla supplies
 the native-manifest path and initiating extension ID as two positional process

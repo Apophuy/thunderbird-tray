@@ -24,6 +24,7 @@ use thunderbird_tray::window::{
     BackendAvailability, DesktopEnvironment, OpenOutcome, ProcessLauncher,
     UnsupportedWindowControl, WindowControl, open_thunderbird, reap_children, select_backend,
 };
+use thunderbird_tray::x11::X11WindowControl;
 use thunderbird_tray::{HostError, run_host, run_host_with_callbacks, write_message};
 use thunderbird_tray_protocol::{Message, RequestFullStatePayload};
 use tracing::{error, info, warn};
@@ -251,12 +252,19 @@ fn run_application(
             None
         }
     };
+    let x11_window_control = match X11WindowControl::connect(&desktop_environment) {
+        Ok(backend) => backend,
+        Err(source) => {
+            warn!(error = %source, "X11 window-control probe failed");
+            None
+        }
+    };
     let backend_selection = select_backend(
         requested_window_backend,
         &desktop_environment,
         BackendAvailability {
             kde_wayland: kde_window_control.is_some(),
-            x11: false,
+            x11: x11_window_control.is_some(),
         },
     );
     info!(
@@ -268,7 +276,10 @@ fn run_application(
     let window_control: Box<dyn WindowControl> =
         match (backend_selection.selected, kde_window_control) {
             (WindowBackend::KdeWayland, Some(backend)) => Box::new(backend),
-            _ => Box::new(UnsupportedWindowControl::new(backend_selection)),
+            _ => match (backend_selection.selected, x11_window_control) {
+                (WindowBackend::X11, Some(backend)) => Box::new(backend),
+                _ => Box::new(UnsupportedWindowControl::new(backend_selection)),
+            },
         };
     let launcher = ProcessLauncher;
     let mut launcher_children = Vec::new();

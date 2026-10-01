@@ -10,6 +10,10 @@ license.workspace = true
 publish.workspace = true
 build = "build.rs"
 
+[features]
+default = []
+x11 = ["dep:x11rb"]
+
 [dependencies]
 anyhow.workspace = true
 ksni.workspace = true
@@ -23,6 +27,7 @@ toml.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 zbus.workspace = true
+x11rb = { workspace = true, optional = true }
 
 [build-dependencies]
 serde_json.workspace = true

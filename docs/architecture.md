@@ -27,11 +27,12 @@ vertical slice:
 - `thunderbird-tray-protocol`: typed, versioned JSON messages;
 - `thunderbird-tray-native-messaging`: length framing and stream transport.
 
-The application crate now contains transport-independent `core`, `config`,
-`cli`, `doctor`, and `i18n` modules. They remain free of Thunderbird, D-Bus,
-KDE, and Wayland APIs. A separate crate is introduced only when a boundary has
-independent consumers or dependencies; Stage 3 does not split small modules
-into speculative crates.
+The application crate contains transport-independent `core`, `config`, `cli`,
+and `i18n` modules. They remain free of Thunderbird, D-Bus, KDE, and Wayland
+APIs. The application-boundary `doctor` module composes read-only probes from
+those desktop-specific modules without moving desktop state into the core. A
+separate crate is introduced only when a boundary has independent consumers or
+dependencies; small modules are not split into speculative crates.
 
 ## Toolchain decision
 
@@ -50,6 +51,10 @@ the newest compatible release for the workspace's Rust 1.85 MSRV, and uses
 CLI surface is parsed in the application crate instead of adding a general CLI
 framework; its parser also distinguishes Mozilla's two Native Messaging launch
 arguments from user commands.
+
+Stage 8 adds `x11rb` 0.14 behind the opt-in `x11` feature. The dependency uses
+the pure-Rust connection and core protocol only; it is absent from the default
+feature graph and does not add libxcb FFI or an XWayland requirement.
 
 ## Identifiers
 
@@ -127,3 +132,9 @@ operation. No X11/XWayland API or persistent KWin package is required. See
 [`wayland.md`](wayland.md),
 [`adr/0003-capability-based-window-control.md`](adr/0003-capability-based-window-control.md),
 and [`adr/0004-kwin-one-shot-scripts.md`](adr/0004-kwin-one-shot-scripts.md).
+
+An optional X11 backend uses runtime-probed ICCCM/EWMH behavior. Other Wayland
+desktops deliberately retain the `none` backend because generic cross-client
+window control is unavailable. Both cases preserve tray, unread monitoring,
+and structured process launch. See [`fallbacks.md`](fallbacks.md) and
+[`adr/0005-optional-x11-and-fallbacks.md`](adr/0005-optional-x11-and-fallbacks.md).

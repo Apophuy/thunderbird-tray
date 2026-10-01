@@ -12,9 +12,16 @@ Run the Rust checks from the repository root:
 
 ```sh
 cargo build --workspace
-cargo test --workspace
+cargo test --workspace --all-features
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
+```
+
+The default build deliberately excludes X11. Compile and test the optional X11
+backend separately with:
+
+```sh
+cargo build --workspace --features x11
 ```
 
 Install the exact extension dependencies and run its checks:
@@ -125,13 +132,25 @@ Set `thunderbird.command` to the local executable (currently
 `/opt/thunderbird/thunderbird`) and optionally provide a TOML `arguments` array.
 Select **Open Thunderbird** from the tray while Thunderbird is absent. The
 configured executable must start, with each array value preserved as one
-literal argument. On the Stage 6 `none` backend this launch fallback is
-expected; it does not claim that an existing window was activated. Process
-activation on KDE Plasma Wayland is the next stage.
+literal argument. On the `none` backend this launch fallback is expected; it
+does not claim that an existing window was activated. Process activation on
+unsupported desktops remains unavailable by design.
 
-The initial Stage 4 check targets KDE Plasma 6.3.6 on Wayland with
-`org.kde.StatusNotifierWatcher` protocol version 0. The Open Thunderbird item is
-intentionally disabled until the launch/window-backend stage.
+## Fallback and diagnostics check
+
+Run `cargo run -p thunderbird-tray -- doctor` in the active graphical session.
+Confirm that it reports the session type, desktop, session bus, application
+service, extension connection, StatusNotifierWatcher, KWin, selected backend
+and reason, X11 feature, native manifest, and Thunderbird executable. Paths
+under the home directory must use `~`, and no account, unread, subject, sender,
+or Thunderbird argument value may appear.
+
+For a build intended for an X11 desktop, use `--features x11`. Verify on a real
+X11 session—not XWayland in a Wayland session—that `doctor` selects `x11` and
+that repeated activate, minimize, and restore actions are confirmed by the
+window manager. If no real X11 session is available, record the live result as
+untested. The detailed matrix and unsupported-Wayland behavior are in
+[`fallbacks.md`](fallbacks.md).
 
 ## Thunderbird documentation baseline
 

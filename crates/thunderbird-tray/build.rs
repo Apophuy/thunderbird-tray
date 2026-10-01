@@ -31,6 +31,11 @@ fn main() {
         "lifecycleObjectPath",
         "THUNDERBIRD_TRAY_LIFECYCLE_OBJECT_PATH",
     );
+    export_identifier(
+        &identifiers,
+        "nativeHostName",
+        "THUNDERBIRD_TRAY_NATIVE_HOST_NAME",
+    );
 }
 
 fn export_identifier(identifiers: &serde_json::Value, key: &str, environment_name: &str) {

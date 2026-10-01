@@ -13,6 +13,7 @@ pub mod sni;
 pub mod tray;
 mod tray_icons;
 pub mod window;
+pub mod x11;
 
 use std::io::{Read, Write};
 

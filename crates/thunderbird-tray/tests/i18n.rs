@@ -92,11 +92,17 @@ fn help_and_doctor_are_localized_without_mail_data() {
 
     assert!(localizer.help().contains("Использование"));
     assert!(report.contains("Диагностика thunderbird-tray"));
-    assert!(report.contains("Оконный бэкенд: none"));
+    assert!(report.contains("Запрошенный оконный бэкенд: none"));
+    assert!(report.contains("Выбранный оконный бэкенд: none"));
     assert!(report.contains("Выбранный язык: ru"));
+    assert!(report.contains("Соединение с расширением Thunderbird"));
+    assert!(report.contains("Манифест Native Messaging"));
     assert!(localizer.already_running().contains("уже запущен"));
     assert!(localizer.lifecycle_error(&"D-Bus").contains("D-Bus"));
     assert!(localizer.service_start_timeout().contains("не запустилась"));
     assert!(!report.contains("unread"));
     assert!(!report.contains("account"));
+    if let Some(home) = std::env::var_os("HOME") {
+        assert!(!report.contains(home.to_string_lossy().as_ref()));
+    }
 }

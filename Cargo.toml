@@ -34,3 +34,4 @@ toml = "1.1.6"
 tracing = { version = "0.1.44", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt"] }
 zbus = { version = "=5.13.2", default-features = false, features = ["blocking-api", "tokio"] }
+x11rb = { version = "0.14.0", default-features = false }

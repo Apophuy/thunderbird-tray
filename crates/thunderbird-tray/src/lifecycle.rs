@@ -39,6 +39,10 @@ struct LifecycleInterface {
 
 #[zbus::interface(name = "io.github.apophuy.thunderbird_tray.Lifecycle")]
 impl LifecycleInterface {
+    fn native_session_active(&self) -> bool {
+        self.session_active.load(Ordering::Acquire)
+    }
+
     fn attach_native_stream(&self, input: OwnedFd, output: OwnedFd) -> zbus::fdo::Result<OwnedFd> {
         if self
             .session_active
@@ -146,6 +150,16 @@ impl LifecycleClient {
         Ok(proxy.name_has_owner(name)?)
     }
 
+    pub fn native_session_active(&self) -> Result<bool, LifecycleError> {
+        let proxy = Proxy::new(
+            &self.connection,
+            APPLICATION_ID,
+            LIFECYCLE_OBJECT_PATH,
+            LIFECYCLE_INTERFACE,
+        )?;
+        Ok(proxy.call("NativeSessionActive", &())?)
+    }
+
     pub fn attach_standard_streams(&self) -> Result<(), LifecycleError> {
         let input = io::stdin();
         let output = io::stdout();
@@ -223,6 +237,7 @@ mod tests {
             window_reports: window_tx,
             session_active: Arc::clone(&session_active),
         };
+        assert!(!interface.native_session_active());
 
         let (input, _input_peer) = UnixStream::pair().unwrap();
         let (output, _output_peer) = UnixStream::pair().unwrap();
@@ -242,6 +257,7 @@ mod tests {
         assert!(duplicate.is_err());
 
         let attached = attached_rx.recv().unwrap();
+        assert!(interface.native_session_active());
         session_active.store(false, Ordering::Release);
         drop(attached.completion_guard);
 
