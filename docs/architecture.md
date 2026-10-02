@@ -18,16 +18,21 @@ servers directly.
 The versioned wire contract and framing rules are documented in
 [`protocol.md`](protocol.md).
 
-## Initial workspace
+## Workspace boundaries
 
-Stage 0 creates only the crates required by the first vertical slice:
+The initial workspace keeps the boundaries required by the Native Messaging
+vertical slice:
 
 - `thunderbird-tray`: executable and future native-host entry point;
 - `thunderbird-tray-protocol`: typed, versioned JSON messages;
 - `thunderbird-tray-native-messaging`: length framing and stream transport.
 
-Tray, core-state, configuration, and window-backend crates will be introduced
-only when their stages need them.
+The application crate contains transport-independent `core`, `config`, `cli`,
+and `i18n` modules. They remain free of Thunderbird, D-Bus, KDE, and Wayland
+APIs. The application-boundary `doctor` module composes read-only probes from
+those desktop-specific modules without moving desktop state into the core. A
+separate crate is introduced only when a boundary has independent consumers or
+dependencies; small modules are not split into speculative crates.
 
 ## Toolchain decision
 
@@ -39,12 +44,107 @@ minimum. CI runs the declared toolchain so the claim remains tested.
 The extension requires Node.js 22.13 or newer and uses locked npm dependencies.
 It emits readable ES modules rather than bundled or minified output.
 
+Stage 3 adds `toml` 1.1.6 for configuration. Stage 4 adds `ksni` 0.3.6 behind a
+local adapter for StatusNotifierItem and DBusMenu. Stage 5 pins `zbus` 5.13.2,
+the newest compatible release for the workspace's Rust 1.85 MSRV, and uses
+`rustix` 1.1 for the service child's process-session boundary. The small fixed
+CLI surface is parsed in the application crate instead of adding a general CLI
+framework; its parser also distinguishes Mozilla's two Native Messaging launch
+arguments from user commands.
+
+Stage 8 adds `x11rb` 0.14 behind the opt-in `x11` feature. The dependency uses
+the pure-Rust connection and core protocol only; it is absent from the default
+feature graph and does not add libxcb FFI or an XWayland requirement.
+
+Stage 10 adds pinned Slint 1.13.1 with its native Wayland/software-renderer
+backend for the standalone settings window, plus `image` 0.25.9 for decoding
+the embedded original raster artwork. Slint is GPL-compatible, supports the
+Rust 1.85 MSRV, and does not add Qt or GTK. See
+[`adr/0007-settings-and-artwork.md`](adr/0007-settings-and-artwork.md).
+`Cargo.lock` pins Slint's permissive `fontdue` dependency to 0.9.3 because the
+later 0.9.4 release uses language/library functionality newer than Rust 1.85.
+
 ## Identifiers
 
-[`../identifiers.toml`](../identifiers.toml) is the canonical registry for the
-product, application, native-host, and extension identifiers. Repository
-ownership and the permanent extension ID are unresolved, so templates retain
-`<owner>` and `<unresolved>`. The extension manifest deliberately omits a Gecko
-ID until that product decision is made; this is sufficient for temporary
-development loading but not packaged installation or Native Messaging
-authorization.
+[`../identifiers.json`](../identifiers.json) is the canonical registry for the
+product, application, native-host, and extension identifiers. The repository
+owner is `Apophuy`; reverse-DNS identifiers normalize that component to
+lowercase `apophuy`. The permanent extension ID is the generated UUID recorded
+in that registry. Build and installation scripts consume the registry instead
+of duplicating identifiers in source files.
+
+## Localization and tray UX
+
+English and Russian are the supported user-interface languages. English is the
+source language and fallback. The `auto` language mode resolves Russian for
+Russian system locales and English otherwise; explicit `en` and `ru` overrides
+are persisted through the configuration boundary. Protocol values and
+structured logs stay language-neutral.
+
+Configuration discovery follows XDG rules, defaults safely when the implicit
+file is absent, and treats an invalid or missing explicit file as fatal. Unknown
+keys are rejected. See [`configuration.md`](configuration.md) for the schema,
+CLI, and privacy-preserving `doctor` output.
+
+The StatusNotifierItem icon, tooltip, and native DBusMenu remain the always-on
+surface. Plasma owns the menu chrome, so the application supplies a coherent
+icon family, unambiguous normal/unread/disconnected states, concise native
+actions, and a visible language selector. A separate, normal-sized Slint
+window provides explicit Apply/Cancel settings, per-user autostart controls,
+and system/light/dark appearance modes. It opens from the desktop launcher,
+tray menu, or CLI without becoming a second tray owner.
+
+The StatusNotifierItem adapter runs on its own service thread. A separate
+Native Messaging reader publishes typed state changes, while one dedicated
+writer owns stdout so framed protocol output cannot interleave. Tray callbacks
+only enqueue typed actions. The pure presentation model and adapter menu tests
+run without D-Bus, KDE, Thunderbird, or Wayland. See
+[`adr/0001-status-notifier-item.md`](adr/0001-status-notifier-item.md) and
+[`tray-ux.md`](tray-ux.md).
+
+## Lifecycle and single instance
+
+The application process owns the well-known session-bus name
+`io.github.apophuy.thunderbird-tray`. A Thunderbird-launched native-host process
+passes its stdin and stdout file descriptors to that owner and waits on a
+separate completion descriptor. This keeps Thunderbird's host process contract
+intact while one persistent process owns the tray. Only one Native Messaging
+session is active at a time.
+
+After the Native Messaging stream closes, the persistent process clears unread
+data, presents the disconnected tray state, and waits for a subsequent
+Thunderbird launch. The extension repeats the handshake and sends a complete
+Inbox snapshot after reconnecting. StatusNotifierWatcher loss is also
+recoverable: the tray service stays alive for automatic registration when the
+watcher returns. See
+[`adr/0002-single-instance-lifecycle.md`](adr/0002-single-instance-lifecycle.md).
+
+## Window control and process launch
+
+Window integration is capability-based: detect, activate, hide, and show
+support are reported independently. Backend selection records environment
+hints, runtime availability, and its reason, while unsupported operations
+remain typed errors. The `none` backend keeps the tray and unread monitoring
+operational on desktops without global window control.
+
+Open Thunderbird attempts activation only when the selected backend advertises
+it. Otherwise it launches the configured executable and literal argument array
+through `std::process::Command`, never a shell. Child standard input/output
+cannot interfere with Native Messaging, and the persistent process reaps child
+exit status.
+
+On Plasma Wayland, a runtime-probed KWin 6 backend performs the four window
+operations through unique one-shot KWin JavaScript files in the user's runtime
+directory. It uses the documented KWin window API but treats the session D-Bus
+script loader as compatibility-sensitive. Scripts report bounded results over
+the existing lifecycle D-Bus service and are unloaded and removed after every
+operation. No X11/XWayland API or persistent KWin package is required. See
+[`wayland.md`](wayland.md),
+[`adr/0003-capability-based-window-control.md`](adr/0003-capability-based-window-control.md),
+and [`adr/0004-kwin-one-shot-scripts.md`](adr/0004-kwin-one-shot-scripts.md).
+
+An optional X11 backend uses runtime-probed ICCCM/EWMH behavior. Other Wayland
+desktops deliberately retain the `none` backend because generic cross-client
+window control is unavailable. Both cases preserve tray, unread monitoring,
+and structured process launch. See [`fallbacks.md`](fallbacks.md) and
+[`adr/0005-optional-x11-and-fallbacks.md`](adr/0005-optional-x11-and-fallbacks.md).

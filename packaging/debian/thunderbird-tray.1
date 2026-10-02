@@ -1,0 +1,48 @@
+.\" SPDX-License-Identifier: GPL-3.0-only
+.TH THUNDERBIRD-TRAY 1 "October 2026" "thunderbird-tray" "User Commands"
+.SH NAME
+thunderbird-tray \- Thunderbird tray companion for Linux
+.SH SYNOPSIS
+.B thunderbird-tray
+.RI [ options ]
+.br
+.B thunderbird-tray doctor
+.br
+.B thunderbird-tray settings
+.SH DESCRIPTION
+.B thunderbird-tray
+receives aggregate Inbox unread state from a Thunderbird 156 or newer
+Manifest V3 extension through Native Messaging and exposes a Linux
+StatusNotifierItem tray icon and menu.
+.SH OPTIONS
+.TP
+.B doctor
+Print a privacy-preserving diagnostic report.
+.TP
+.B settings
+Open the graphical settings window.
+.TP
+.BR --config " " PATH
+Use a specific configuration file.
+.TP
+.BR --window-backend " " BACKEND
+Select auto, kde-wayland, x11, or unsupported window control.
+.TP
+.BR --log-level " " LEVEL
+Select trace, debug, info, warn, or error logging.
+.TP
+.B --help
+Show command-line help.
+.TP
+.B --version
+Show the application version.
+.SH FILES
+.TP
+.I ~/.config/thunderbird-tray/config.toml
+Default per-user configuration file.
+.TP
+.I /opt/thunderbird-tray/share/thunderbird-tray/thunderbird-tray.xpi
+Thunderbird extension installed separately through Add-ons Manager.
+.SH SEE ALSO
+The packaged README files in
+.IR /opt/thunderbird-tray/ .

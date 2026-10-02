@@ -1,0 +1,7 @@
+# This personal binary package deliberately uses the FHS add-on tree requested
+# by its primary user. It is not intended for inclusion in the Debian archive.
+thunderbird-tray: dir-or-file-in-opt
+
+# The package is distributed directly rather than uploaded through Debian's
+# bug-tracked archive workflow.
+thunderbird-tray: initial-upload-closes-no-bugs

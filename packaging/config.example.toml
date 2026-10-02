@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
+[general]
+start_thunderbird = false
+start_minimized = false
+notifications = true
+language = "auto"
+theme = "system"
+
+[tray]
+show_unread_count = true
+hide_when_zero = false
+
+[thunderbird]
+command = "thunderbird"
+arguments = []
+
+[window]
+backend = "auto"
