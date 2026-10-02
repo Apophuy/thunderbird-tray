@@ -36,10 +36,11 @@ This current-session behavior is independent from XDG autostart, which controls
 future sign-ins.
 
 Slint 1.13.1 resets a `ComboBox` to its first row whenever its model reports a
-change. Localized option models therefore remain stable for the lifetime of a
-settings window. Ordinary labels preview the chosen language immediately; the
-option labels are rebuilt in that language when settings next opens. This keeps
-the selected language index intact until Apply can persist it.
+change, including a model assigned while the window is first rendered. The
+settings combo boxes therefore use compile-time, bilingual option lists rather
+than models assigned from Rust. Ordinary labels still preview the chosen
+language immediately, while language, theme, and backend indexes remain intact
+through first render so Apply can persist them.
 
 Slint's generated macro code needs to control its internal unsafe lint. The
 workspace therefore changes `unsafe_code` from `forbid` to `deny`: handwritten

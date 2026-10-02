@@ -58,7 +58,7 @@ KDE Plasma — в [руководстве по Wayland](docs/wayland.md). Для
 ```sh
 ./scripts/build-release.sh
 ./scripts/check-release.sh
-sudo apt install ./dist/release/thunderbird-tray_0.2.1_amd64.deb
+sudo apt install ./dist/release/thunderbird-tray_0.2.2_amd64.deb
 ```
 
 После этого установите

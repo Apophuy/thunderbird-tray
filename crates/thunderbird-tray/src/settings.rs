@@ -7,7 +7,7 @@ use std::io;
 use std::process::{Command, Stdio};
 use std::rc::Rc;
 
-use slint::{ComponentHandle, SharedString, VecModel};
+use slint::{ComponentHandle, SharedString};
 use thiserror::Error;
 
 use crate::autostart::{AutostartEntry, AutostartError};
@@ -54,10 +54,6 @@ slint::slint! {
         in property <string> apply-label;
         in property <string> done-label;
         in property <string> cancel-label;
-        in property <[string]> language-options;
-        in property <[string]> theme-options;
-        in property <[string]> backend-options;
-
         in-out property <bool> autostart-enabled;
         in-out property <bool> start-thunderbird;
         in-out property <bool> start-minimized;
@@ -125,12 +121,12 @@ slint::slint! {
                         }
                         Text { text: root.language-label; }
                         ComboBox {
-                            model: root.language-options;
+                            model: ["Automatic / Автоматически", "English", "Русский"];
                             current-index <=> root.language-index;
                         }
                         Text { text: root.theme-label; }
                         ComboBox {
-                            model: root.theme-options;
+                            model: ["System / Системная", "Light / Светлая", "Dark / Тёмная"];
                             current-index <=> root.theme-index;
                         }
                         Rectangle { vertical-stretch: 1; }
@@ -171,7 +167,7 @@ slint::slint! {
                         LineEdit { text <=> root.thunderbird-command; }
                         Text { text: root.backend-label; }
                         ComboBox {
-                            model: root.backend-options;
+                            model: ["Automatic / Автоматически", "KDE Plasma Wayland", "X11", "None / Нет"];
                             current-index <=> root.backend-index;
                         }
                         Rectangle { vertical-stretch: 1; }
@@ -209,10 +205,10 @@ slint::slint! {
                         }
                         HorizontalLayout {
                             alignment: center;
-                            spacing: 8px;
-                            Text { text: root.contact-author-label; }
                             Button {
-                                text: "✉";
+                                text: root.contact-author-label;
+                                icon: @image-url("assets/mail.svg");
+                                colorize-icon: true;
                                 clicked => { root.email-author(); }
                             }
                         }
@@ -262,8 +258,6 @@ pub fn run(
     let autostart = AutostartEntry::discover()?;
     let window = SettingsWindow::new()?;
     let language = language_for_mode(config.general.language, automatic_language);
-    let option_models = SettingsOptionModels::new(SettingsStrings::new(language));
-    option_models.install(&window);
     let strings = apply_language(&window, language);
 
     if let Some(icon) = crate::tray_icons::application_image() {
@@ -437,42 +431,6 @@ fn about_author(strings: SettingsStrings) -> String {
     format!("{} Apophuy", strings.author)
 }
 
-#[derive(Clone)]
-struct SettingsOptionModels {
-    language: Rc<VecModel<SharedString>>,
-    theme: Rc<VecModel<SharedString>>,
-    backend: Rc<VecModel<SharedString>>,
-}
-
-impl SettingsOptionModels {
-    fn new(strings: SettingsStrings) -> Self {
-        Self {
-            language: Rc::new(VecModel::from(vec![
-                SharedString::from(strings.automatic),
-                SharedString::from("English"),
-                SharedString::from("Русский"),
-            ])),
-            theme: Rc::new(VecModel::from(vec![
-                SharedString::from(strings.theme_system),
-                SharedString::from(strings.theme_light),
-                SharedString::from(strings.theme_dark),
-            ])),
-            backend: Rc::new(VecModel::from(vec![
-                SharedString::from(strings.backend_auto),
-                SharedString::from("KDE Plasma Wayland"),
-                SharedString::from("X11"),
-                SharedString::from(strings.backend_none),
-            ])),
-        }
-    }
-
-    fn install(&self, window: &SettingsWindow) {
-        window.set_language_options(self.language.clone().into());
-        window.set_theme_options(self.theme.clone().into());
-        window.set_backend_options(self.backend.clone().into());
-    }
-}
-
 fn author_email_command() -> Command {
     let mut command = Command::new("xdg-email");
     command
@@ -637,12 +595,6 @@ struct SettingsStrings {
     apply: &'static str,
     done: &'static str,
     cancel: &'static str,
-    automatic: &'static str,
-    theme_system: &'static str,
-    theme_light: &'static str,
-    theme_dark: &'static str,
-    backend_auto: &'static str,
-    backend_none: &'static str,
     save_failed: &'static str,
     apply_failed: &'static str,
     email_failed: &'static str,
@@ -677,12 +629,6 @@ impl SettingsStrings {
                 apply: "Apply",
                 done: "Done",
                 cancel: "Cancel",
-                automatic: "Automatic",
-                theme_system: "System",
-                theme_light: "Light",
-                theme_dark: "Dark",
-                backend_auto: "Automatic",
-                backend_none: "None",
                 save_failed: "Could not save settings",
                 apply_failed: "Settings were saved, but could not be applied",
                 email_failed: "Could not open the mail application",
@@ -713,12 +659,6 @@ impl SettingsStrings {
                 apply: "Применить",
                 done: "Готово",
                 cancel: "Отмена",
-                automatic: "Автоматически",
-                theme_system: "Системная",
-                theme_light: "Светлая",
-                theme_dark: "Тёмная",
-                backend_auto: "Автоматически",
-                backend_none: "Нет",
                 save_failed: "Не удалось сохранить настройки",
                 apply_failed: "Настройки сохранены, но применить их не удалось",
                 email_failed: "Не удалось открыть почтовое приложение",
@@ -741,7 +681,21 @@ pub enum SettingsError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use slint::Model as _;
+    use slint::platform::software_renderer::{MinimalSoftwareWindow, RepaintBufferType};
+    use slint::platform::{Platform, PlatformError, WindowAdapter};
+
+    thread_local! {
+        static TEST_WINDOW: Rc<MinimalSoftwareWindow> =
+            MinimalSoftwareWindow::new(RepaintBufferType::ReusedBuffer);
+    }
+
+    struct TestPlatform;
+
+    impl Platform for TestPlatform {
+        fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+            Ok(TEST_WINDOW.with(Rc::clone))
+        }
+    }
 
     #[test]
     fn combo_box_indices_round_trip_stable_config_values() {
@@ -791,16 +745,11 @@ mod tests {
     #[test]
     fn language_selection_survives_apply_and_settings_reopen() {
         let automatic_language = Language::Russian;
-        let initial_language = language_for_mode(LanguageMode::Auto, automatic_language);
-        let option_models = SettingsOptionModels::new(SettingsStrings::new(initial_language));
-        assert_eq!(
-            option_models.language.row_data(0).as_deref(),
-            Some("Автоматически")
-        );
-
         let mut config = Config::default();
         let mut selected = SettingsValues::from_config(&config, false);
         selected.language = language_from_index(language_index(LanguageMode::En));
+        selected.theme = ThemeMode::Dark;
+        selected.backend = WindowBackend::KdeWayland;
         selected.write_to_config(&mut config);
         assert_eq!(config.general.language, LanguageMode::En);
 
@@ -811,12 +760,40 @@ mod tests {
             SettingsStrings::new(reopened_language).language,
             "Interface language"
         );
+
+        slint::platform::set_platform(Box::new(TestPlatform)).unwrap();
+        let window = SettingsWindow::new().unwrap();
+        apply_language(&window, reopened_language);
+        window.set_language_index(language_index(config.general.language));
+        window.set_theme_index(theme_index(config.general.theme));
+        window.set_backend_index(backend_index(config.window.backend));
+        window.show().unwrap();
+        TEST_WINDOW.with(|test_window| {
+            let size = slint::PhysicalSize::new(680, 540);
+            test_window.set_size(size);
+            let mut pixels =
+                slint::SharedPixelBuffer::<slint::Rgb8Pixel>::new(size.width, size.height);
+            assert!(test_window.draw_if_needed(|renderer| {
+                renderer.render(pixels.make_mut_slice(), size.width as usize);
+            }));
+        });
+        assert_eq!(
+            window.get_language_index(),
+            language_index(LanguageMode::En)
+        );
+        assert_eq!(window.get_theme_index(), theme_index(ThemeMode::Dark));
+        assert_eq!(
+            window.get_backend_index(),
+            backend_index(WindowBackend::KdeWayland)
+        );
     }
 
     #[test]
     fn about_details_use_package_version_without_exposing_email() {
         let strings = SettingsStrings::new(Language::English);
         let author = about_author(strings);
+        let mail_icon =
+            slint::Image::load_from_svg_data(include_bytes!("../assets/mail.svg")).unwrap();
 
         assert_eq!(author, "Author: Apophuy");
         assert_eq!(
@@ -824,6 +801,7 @@ mod tests {
             format!("Version {}", env!("CARGO_PKG_VERSION"))
         );
         assert!(!author.contains(AUTHOR_EMAIL));
+        assert_eq!(mail_icon.size(), [24, 24].into());
     }
 
     #[test]
