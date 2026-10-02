@@ -62,7 +62,7 @@ sudo apt install ./dist/release/thunderbird-tray_0.2.3_amd64.deb
 ```
 
 После этого установите
-`/opt/thunderbird-tray/share/thunderbird-tray/thunderbird-tray.xpi` через
+`./dist/release/thunderbird-tray.xpi` через
 **Дополнения и темы → Расширения → Установить дополнение из файла…** в
 Thunderbird.
 
