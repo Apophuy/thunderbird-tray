@@ -34,13 +34,14 @@ Verify the release directory and install the package:
 
 ```sh
 sha256sum -c SHA256SUMS
-sudo apt install ./thunderbird-tray_0.2.0_amd64.deb
+sudo apt install ./thunderbird-tray_0.2.1_amd64.deb
 ```
 
 The package installs:
 
 - the application below `/opt/thunderbird-tray`;
 - `/usr/bin/thunderbird-tray` as a package-owned command link;
+- `xdg-utils` for opening the user's default mail composer from About;
 - an application-menu launcher and hicolor icons using the common amber
   application/extension artwork;
 - the global Mozilla Native Messaging manifest below

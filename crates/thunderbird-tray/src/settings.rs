@@ -3,15 +3,19 @@
 //! Native settings window backed by the same strict TOML configuration.
 
 use std::cell::{Cell, RefCell};
+use std::io;
+use std::process::{Command, Stdio};
 use std::rc::Rc;
 
-use slint::{ComponentHandle, Model, SharedString, VecModel};
+use slint::{ComponentHandle, SharedString, VecModel};
 use thiserror::Error;
 
 use crate::autostart::{AutostartEntry, AutostartError};
 use crate::config::{Config, ConfigError, ConfigSource, LanguageMode, ThemeMode, WindowBackend};
 use crate::i18n::{Language, language_for_mode};
 use crate::lifecycle::LifecycleClient;
+
+const AUTHOR_EMAIL: &str = "apophuy@hotmail.com";
 
 slint::slint! {
     import { Button, CheckBox, ComboBox, LineEdit, Palette, TabWidget } from "std-widgets.slint";
@@ -29,6 +33,7 @@ slint::slint! {
         in property <string> general-tab;
         in property <string> tray-tab;
         in property <string> thunderbird-tab;
+        in property <string> about-tab;
         in property <string> autostart-label;
         in property <string> start-thunderbird-label;
         in property <string> start-minimized-label;
@@ -41,6 +46,11 @@ slint::slint! {
         in property <string> close-limit-text;
         in property <string> command-label;
         in property <string> backend-label;
+        in property <string> about-name;
+        in property <string> about-version;
+        in property <string> about-author;
+        in property <string> about-license;
+        in property <string> contact-author-label;
         in property <string> apply-label;
         in property <string> done-label;
         in property <string> cancel-label;
@@ -65,6 +75,7 @@ slint::slint! {
         callback apply(bool);
         callback cancel();
         callback edited();
+        callback email-author();
 
         changed autostart-enabled => { root.edited(); }
         changed start-thunderbird => { root.edited(); }
@@ -166,6 +177,52 @@ slint::slint! {
                         Rectangle { vertical-stretch: 1; }
                     }
                 }
+
+                Tab {
+                    title: root.about-tab;
+                    VerticalLayout {
+                        padding: 24px;
+                        spacing: 12px;
+                        Rectangle { vertical-stretch: 1; }
+                        HorizontalLayout {
+                            alignment: center;
+                            Image {
+                                source: root.app-icon;
+                                width: 96px;
+                                height: 96px;
+                                image-fit: contain;
+                            }
+                        }
+                        Text {
+                            text: root.about-name;
+                            horizontal-alignment: center;
+                            font-size: 24px;
+                            font-weight: 700;
+                        }
+                        Text {
+                            text: root.about-version;
+                            horizontal-alignment: center;
+                        }
+                        Text {
+                            text: root.about-author;
+                            horizontal-alignment: center;
+                        }
+                        HorizontalLayout {
+                            alignment: center;
+                            spacing: 8px;
+                            Text { text: root.contact-author-label; }
+                            Button {
+                                text: "✉";
+                                clicked => { root.email-author(); }
+                            }
+                        }
+                        Text {
+                            text: root.about-license;
+                            horizontal-alignment: center;
+                        }
+                        Rectangle { vertical-stretch: 1; }
+                    }
+                }
             }
 
             Text {
@@ -207,7 +264,7 @@ pub fn run(
     let language = language_for_mode(config.general.language, automatic_language);
     let option_models = SettingsOptionModels::new(SettingsStrings::new(language));
     option_models.install(&window);
-    let strings = apply_language(&window, &option_models, language);
+    let strings = apply_language(&window, language);
 
     if let Some(icon) = crate::tray_icons::application_image() {
         window.set_app_icon(icon);
@@ -236,9 +293,24 @@ pub fn run(
         &window,
         Rc::clone(&saved_values),
         preview_language,
-        option_models,
         automatic_language,
     );
+
+    let weak = window.as_weak();
+    window.on_email_author(move || {
+        if let Err(error) = open_author_email() {
+            let Some(window) = weak.upgrade() else {
+                return;
+            };
+            let language = language_for_mode(
+                language_from_index(window.get_language_index()),
+                automatic_language,
+            );
+            let strings = SettingsStrings::new(language);
+            window.set_status_is_error(true);
+            window.set_status_message(format!("{}: {error}", strings.email_failed).into());
+        }
+    });
 
     window.on_cancel(move || {
         let _ = slint::quit_event_loop();
@@ -308,7 +380,6 @@ fn install_edit_handler(
     window: &SettingsWindow,
     saved_values: Rc<RefCell<SettingsValues>>,
     preview_language: Rc<Cell<Language>>,
-    option_models: SettingsOptionModels,
     automatic_language: Language,
 ) {
     let weak = window.as_weak();
@@ -319,7 +390,7 @@ fn install_edit_handler(
         let current_values = SettingsValues::from_window(&window);
         let language = language_for_mode(current_values.language, automatic_language);
         if language != preview_language.get() {
-            apply_language(&window, &option_models, language);
+            apply_language(&window, language);
             preview_language.set(language);
         }
         let changed = current_values != *saved_values.borrow();
@@ -328,16 +399,13 @@ fn install_edit_handler(
     });
 }
 
-fn apply_language(
-    window: &SettingsWindow,
-    option_models: &SettingsOptionModels,
-    language: Language,
-) -> SettingsStrings {
+fn apply_language(window: &SettingsWindow, language: Language) -> SettingsStrings {
     let strings = SettingsStrings::new(language);
     window.set_window_title(strings.window_title.into());
     window.set_general_tab(strings.general_tab.into());
     window.set_tray_tab(strings.tray_tab.into());
     window.set_thunderbird_tab(strings.thunderbird_tab.into());
+    window.set_about_tab(strings.about_tab.into());
     window.set_autostart_label(strings.autostart.into());
     window.set_start_thunderbird_label(strings.start_thunderbird.into());
     window.set_start_minimized_label(strings.start_minimized.into());
@@ -350,11 +418,23 @@ fn apply_language(
     window.set_close_limit_text(strings.close_limit_text.into());
     window.set_command_label(strings.command.into());
     window.set_backend_label(strings.backend.into());
+    window.set_about_name("thunderbird-tray".into());
+    window.set_about_version(about_version(strings).into());
+    window.set_about_author(about_author(strings).into());
+    window.set_about_license(strings.license.into());
+    window.set_contact_author_label(strings.contact_author.into());
     window.set_apply_label(strings.apply.into());
     window.set_done_label(strings.done.into());
     window.set_cancel_label(strings.cancel.into());
-    option_models.localize(strings);
     strings
+}
+
+fn about_version(strings: SettingsStrings) -> String {
+    format!("{} {}", strings.version, env!("CARGO_PKG_VERSION"))
+}
+
+fn about_author(strings: SettingsStrings) -> String {
+    format!("{} Apophuy", strings.author)
 }
 
 #[derive(Clone)]
@@ -391,21 +471,24 @@ impl SettingsOptionModels {
         window.set_theme_options(self.theme.clone().into());
         window.set_backend_options(self.backend.clone().into());
     }
+}
 
-    fn localize(&self, strings: SettingsStrings) {
-        self.language
-            .set_row_data(0, SharedString::from(strings.automatic));
-        self.theme
-            .set_row_data(0, SharedString::from(strings.theme_system));
-        self.theme
-            .set_row_data(1, SharedString::from(strings.theme_light));
-        self.theme
-            .set_row_data(2, SharedString::from(strings.theme_dark));
-        self.backend
-            .set_row_data(0, SharedString::from(strings.backend_auto));
-        self.backend
-            .set_row_data(3, SharedString::from(strings.backend_none));
-    }
+fn author_email_command() -> Command {
+    let mut command = Command::new("xdg-email");
+    command
+        .arg(AUTHOR_EMAIL)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    command
+}
+
+fn open_author_email() -> io::Result<()> {
+    let mut child = author_email_command().spawn()?;
+    std::thread::spawn(move || {
+        let _ = child.wait();
+    });
+    Ok(())
 }
 
 fn ensure_tray_service(
@@ -534,6 +617,7 @@ struct SettingsStrings {
     general_tab: &'static str,
     tray_tab: &'static str,
     thunderbird_tab: &'static str,
+    about_tab: &'static str,
     autostart: &'static str,
     start_thunderbird: &'static str,
     start_minimized: &'static str,
@@ -546,6 +630,10 @@ struct SettingsStrings {
     close_limit_text: &'static str,
     command: &'static str,
     backend: &'static str,
+    version: &'static str,
+    author: &'static str,
+    contact_author: &'static str,
+    license: &'static str,
     apply: &'static str,
     done: &'static str,
     cancel: &'static str,
@@ -557,6 +645,7 @@ struct SettingsStrings {
     backend_none: &'static str,
     save_failed: &'static str,
     apply_failed: &'static str,
+    email_failed: &'static str,
     applied: &'static str,
 }
 
@@ -568,6 +657,7 @@ impl SettingsStrings {
                 general_tab: "General",
                 tray_tab: "Tray",
                 thunderbird_tab: "Thunderbird",
+                about_tab: "About",
                 autostart: "Start thunderbird-tray when I sign in",
                 start_thunderbird: "Start Thunderbird with thunderbird-tray",
                 start_minimized: "Start Thunderbird hidden in the tray",
@@ -580,6 +670,10 @@ impl SettingsStrings {
                 close_limit_text: "Thunderbird 156 and KWin 6 do not expose a supported pre-close hook on Linux. Use Hide Thunderbird to tray; the window is removed from the KDE task manager while mail monitoring continues.",
                 command: "Thunderbird executable",
                 backend: "Window-control backend",
+                version: "Version",
+                author: "Author:",
+                contact_author: "Contact the author",
+                license: "License: GPL-3.0-only",
                 apply: "Apply",
                 done: "Done",
                 cancel: "Cancel",
@@ -591,6 +685,7 @@ impl SettingsStrings {
                 backend_none: "None",
                 save_failed: "Could not save settings",
                 apply_failed: "Settings were saved, but could not be applied",
+                email_failed: "Could not open the mail application",
                 applied: "Settings applied. thunderbird-tray is running.",
             },
             Language::Russian => Self {
@@ -598,6 +693,7 @@ impl SettingsStrings {
                 general_tab: "Общие",
                 tray_tab: "Трей",
                 thunderbird_tab: "Thunderbird",
+                about_tab: "О приложении",
                 autostart: "Запускать thunderbird-tray при входе в систему",
                 start_thunderbird: "Запускать Thunderbird вместе с thunderbird-tray",
                 start_minimized: "Запускать Thunderbird скрытым в трее",
@@ -610,6 +706,10 @@ impl SettingsStrings {
                 close_limit_text: "Thunderbird 156 и KWin 6 не предоставляют поддерживаемого перехвата кнопки закрытия в Linux. Используйте «Скрыть Thunderbird в трей»: окно исчезнет из панели KDE, а проверка почты продолжится.",
                 command: "Исполняемый файл Thunderbird",
                 backend: "Бэкенд управления окном",
+                version: "Версия",
+                author: "Автор:",
+                contact_author: "Написать автору",
+                license: "Лицензия: GPL-3.0-only",
                 apply: "Применить",
                 done: "Готово",
                 cancel: "Отмена",
@@ -621,6 +721,7 @@ impl SettingsStrings {
                 backend_none: "Нет",
                 save_failed: "Не удалось сохранить настройки",
                 apply_failed: "Настройки сохранены, но применить их не удалось",
+                email_failed: "Не удалось открыть почтовое приложение",
                 applied: "Настройки применены. thunderbird-tray запущен.",
             },
         }
@@ -640,6 +741,7 @@ pub enum SettingsError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use slint::Model as _;
 
     #[test]
     fn combo_box_indices_round_trip_stable_config_values() {
@@ -687,64 +789,51 @@ mod tests {
     }
 
     #[test]
-    fn localizing_options_updates_rows_without_replacing_models() {
-        let models = SettingsOptionModels::new(SettingsStrings::new(Language::English));
-        let language_model = Rc::clone(&models.language);
-        let theme_model = Rc::clone(&models.theme);
-        let backend_model = Rc::clone(&models.backend);
-
-        models.localize(SettingsStrings::new(Language::Russian));
-
-        assert!(Rc::ptr_eq(&language_model, &models.language));
-        assert!(Rc::ptr_eq(&theme_model, &models.theme));
-        assert!(Rc::ptr_eq(&backend_model, &models.backend));
-        assert_eq!(
-            models.language.row_data(0).as_deref(),
-            Some("Автоматически")
-        );
-        assert_eq!(models.language.row_data(1).as_deref(), Some("English"));
-        assert_eq!(models.language.row_data(2).as_deref(), Some("Русский"));
-        assert_eq!(models.theme.row_data(0).as_deref(), Some("Системная"));
-        assert_eq!(models.backend.row_data(3).as_deref(), Some("Нет"));
-    }
-
-    #[test]
-    fn language_selection_keeps_its_index_and_enables_apply() {
-        let window = SettingsWindow::new().unwrap();
+    fn language_selection_survives_apply_and_settings_reopen() {
         let automatic_language = Language::Russian;
         let initial_language = language_for_mode(LanguageMode::Auto, automatic_language);
         let option_models = SettingsOptionModels::new(SettingsStrings::new(initial_language));
-        option_models.install(&window);
-        apply_language(&window, &option_models, initial_language);
-        window.set_language_index(language_index(LanguageMode::Auto));
-        window.set_apply_enabled(false);
-
-        let saved_values = Rc::new(RefCell::new(SettingsValues::from_window(&window)));
-        install_edit_handler(
-            &window,
-            saved_values,
-            Rc::new(Cell::new(initial_language)),
-            option_models,
-            automatic_language,
-        );
-
-        window.set_language_index(language_index(LanguageMode::En));
-        window.invoke_edited();
         assert_eq!(
-            window.get_language_index(),
-            language_index(LanguageMode::En)
+            option_models.language.row_data(0).as_deref(),
+            Some("Автоматически")
         );
-        assert_eq!(window.get_language_label().as_str(), "Interface language");
-        assert!(window.get_apply_enabled());
 
-        window.set_language_index(language_index(LanguageMode::Ru));
-        window.invoke_edited();
+        let mut config = Config::default();
+        let mut selected = SettingsValues::from_config(&config, false);
+        selected.language = language_from_index(language_index(LanguageMode::En));
+        selected.write_to_config(&mut config);
+        assert_eq!(config.general.language, LanguageMode::En);
+
+        let reopened_language = language_for_mode(config.general.language, automatic_language);
+        assert_eq!(reopened_language, Language::English);
+        assert_eq!(language_index(config.general.language), 1);
         assert_eq!(
-            window.get_language_index(),
-            language_index(LanguageMode::Ru)
+            SettingsStrings::new(reopened_language).language,
+            "Interface language"
         );
-        assert_eq!(window.get_language_label().as_str(), "Язык интерфейса");
-        assert!(window.get_apply_enabled());
+    }
+
+    #[test]
+    fn about_details_use_package_version_without_exposing_email() {
+        let strings = SettingsStrings::new(Language::English);
+        let author = about_author(strings);
+
+        assert_eq!(author, "Author: Apophuy");
+        assert_eq!(
+            about_version(strings),
+            format!("Version {}", env!("CARGO_PKG_VERSION"))
+        );
+        assert!(!author.contains(AUTHOR_EMAIL));
+    }
+
+    #[test]
+    fn mail_button_uses_xdg_email_without_a_shell() {
+        let command = author_email_command();
+        assert_eq!(command.get_program(), "xdg-email");
+        assert_eq!(
+            command.get_args().collect::<Vec<_>>(),
+            [std::ffi::OsStr::new(AUTHOR_EMAIL)]
+        );
     }
 
     #[test]

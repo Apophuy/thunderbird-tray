@@ -75,10 +75,12 @@ window.
 
 ## Settings window
 
-The settings command opens a normal resizable window with General, Tray, and
-Thunderbird tabs. It exposes autostart, Thunderbird launch/start-hidden,
-notifications, language, system/light/dark appearance, unread badge behavior,
-command, and backend. Apply is enabled only when values differ from the last
+The settings command opens a normal resizable window with General, Tray,
+Thunderbird, and About tabs. It exposes autostart, Thunderbird
+launch/start-hidden, notifications, language, system/light/dark appearance,
+unread badge behavior, command, and backend. About shows the package version,
+author, GPL license, and a mail-icon contact action without displaying the
+address. Apply is enabled only when values differ from the last
 successfully applied state; it persists, starts or notifies the service, and
 keeps the window open with a result message. Done applies pending changes and
 closes after success, or closes immediately when nothing changed. Cancel closes

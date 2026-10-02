@@ -29,8 +29,17 @@ settings. If no service owns the application name yet, Apply starts a detached
 service with the same executable and configuration path first. The settings
 window has separate Cancel, Apply, and Done actions: Apply stays open and shows
 the result, Done closes only after a successful apply, and Cancel discards
-current unsaved edits. This current-session behavior is independent from XDG
-autostart, which controls future sign-ins.
+current unsaved edits. An About tab derives its version from Cargo package
+metadata and shows the author and GPL license. The author's address is not
+rendered; a mail-icon action passes it directly to `xdg-email` without a shell.
+This current-session behavior is independent from XDG autostart, which controls
+future sign-ins.
+
+Slint 1.13.1 resets a `ComboBox` to its first row whenever its model reports a
+change. Localized option models therefore remain stable for the lifetime of a
+settings window. Ordinary labels preview the chosen language immediately; the
+option labels are rebuilt in that language when settings next opens. This keeps
+the selected language index intact until Apply can persist it.
 
 Slint's generated macro code needs to control its internal unsafe lint. The
 workspace therefore changes `unsafe_code` from `forbid` to `deny`: handwritten

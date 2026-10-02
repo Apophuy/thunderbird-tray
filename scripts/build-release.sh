@@ -162,7 +162,7 @@ Priority: optional
 Architecture: $debian_architecture
 Maintainer: $debian_maintainer
 Homepage: https://github.com/Apophuy/thunderbird-tray
-Depends: $shlib_dependencies
+Depends: $shlib_dependencies, xdg-utils
 Installed-Size: $installed_size
 Description: Thunderbird tray companion
  Native Linux tray companion for Thunderbird 156 and newer.

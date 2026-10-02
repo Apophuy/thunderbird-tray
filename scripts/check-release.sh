@@ -71,6 +71,7 @@ test "$(dpkg-deb --field "$deb" Package)" = thunderbird-tray
 test "$(dpkg-deb --field "$deb" Version)" = "$debian_version"
 test "$(dpkg-deb --field "$deb" Architecture)" = "$debian_architecture"
 test -n "$(dpkg-deb --field "$deb" Depends)"
+dpkg-deb --field "$deb" Depends | tr ',' '\n' | grep -E '^ *xdg-utils( |$)' >/dev/null
 deb_root=$temporary/deb-root
 mkdir -p -- "$deb_root"
 dpkg-deb --extract "$deb" "$deb_root"
