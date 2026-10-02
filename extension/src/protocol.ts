@@ -52,6 +52,8 @@ export type ProtocolMessage =
   | FullStateMessage
   | RequestFullStateMessage;
 
+export type HostMessage = HelloAckMessage | RequestFullStateMessage;
+
 export function hello(payload: HelloPayload): HelloMessage {
   return { protocol: PROTOCOL_VERSION, type: "hello", payload };
 }
@@ -70,4 +72,33 @@ export function requestFullState(): RequestFullStateMessage {
     type: "requestFullState",
     payload: {},
   };
+}
+
+export function decodeHostMessage(value: unknown): HostMessage | undefined {
+  if (!isRecord(value)) {
+    throw new Error("native host message must be an object");
+  }
+  if (value.protocol !== PROTOCOL_VERSION) {
+    throw new Error(`unsupported protocol version ${String(value.protocol)}`);
+  }
+
+  if (value.type === "helloAck") {
+    if (!isRecord(value.payload) || typeof value.payload.hostVersion !== "string") {
+      throw new Error("helloAck has an invalid payload");
+    }
+    return helloAck({ hostVersion: value.payload.hostVersion });
+  }
+
+  if (value.type === "requestFullState") {
+    if (!isRecord(value.payload)) {
+      throw new Error("requestFullState has an invalid payload");
+    }
+    return requestFullState();
+  }
+
+  return undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

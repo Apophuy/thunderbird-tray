@@ -8,6 +8,31 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
+build = "build.rs"
+
+[features]
+default = []
+x11 = ["dep:x11rb"]
+
+[dependencies]
+anyhow.workspace = true
+image.workspace = true
+ksni.workspace = true
+rustix.workspace = true
+slint.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+thunderbird-tray-native-messaging = { path = "../thunderbird-tray-native-messaging" }
+thunderbird-tray-protocol = { path = "../thunderbird-tray-protocol" }
+toml.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+zbus.workspace = true
+x11rb = { workspace = true, optional = true }
+
+[build-dependencies]
+serde_json.workspace = true
 
 [lints]
 workspace = true

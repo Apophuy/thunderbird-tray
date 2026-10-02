@@ -33,3 +33,15 @@ limit for messages emitted by a native application and is deliberately stricter
 than the browser-to-application maximum because unread-state messages should be
 small and bounded. Host stdout is reserved exclusively for these framed bytes;
 logs and diagnostics belong on stderr.
+
+## Thunderbird state policy
+
+The Stage 2 extension queries folders whose `specialUse` contains `inbox`, reads
+their `unreadMessageCount`, and aggregates the values per account and globally.
+Other folders do not contribute to the count. A complete `fullState` follows
+each successful `hello`/`helloAck` handshake, and folder or account changes
+request another complete snapshot.
+
+Only account IDs, account display names, and unread counters cross the Native
+Messaging boundary. Message subjects, bodies, sender addresses, credentials,
+and folder contents are intentionally outside the protocol.
