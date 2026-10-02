@@ -49,7 +49,7 @@ by a slash. The official Thunderbird logo is neither copied nor modified.
 
 Install the application icon through standard hicolor sizes and a desktop
 entry that opens `thunderbird-tray settings`. The same files are included in
-the Debian and portable artifacts. The settings window may create or remove a
+the Debian package. The settings window may create or remove a
 per-user XDG autostart entry; packages do not enable it automatically.
 
 ## Consequences

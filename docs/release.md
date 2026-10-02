@@ -10,10 +10,9 @@ From a clean checkout with the documented Rust and Node.js toolchains, plus
 ./scripts/check-release.sh
 ```
 
-Artifacts are written to `dist/release/`:
+Artifacts are written to and committed from `dist/release/`:
 
 - `thunderbird-tray_<version>_<architecture>.deb` — primary Debian package;
-- `thunderbird-tray-<version>-<target>.tar.xz` — rootless portable fallback;
 - `thunderbird-tray-<version>.xpi` — Thunderbird 156+ MV3 extension;
 - `SHA256SUMS` — hashes for all artifacts.
 
@@ -35,7 +34,7 @@ Verify the release directory and install the package:
 
 ```sh
 sha256sum -c SHA256SUMS
-sudo apt install ./thunderbird-tray_0.1.9_amd64.deb
+sudo apt install ./thunderbird-tray_0.2.0_amd64.deb
 ```
 
 The package installs:
@@ -74,15 +73,6 @@ Remove the extension separately in Thunderbird Add-ons Manager. Configuration
 under `$XDG_CONFIG_HOME/thunderbird-tray` is deliberately retained because it
 is user data rather than a package-owned file.
 
-## Portable rootless fallback
-
-Extract the `tar.xz` bundle and run `./install.sh`. It installs the binary to
-`~/.local/bin`, application data, the application-menu launcher and hicolor
-icons below `$XDG_DATA_HOME`, and a per-user Native Messaging manifest below
-`~/.mozilla/native-messaging-hosts`.
-Set `THUNDERBIRD_TRAY_PREFIX` to change the binary prefix. Run the bundle's
-`./uninstall.sh` to remove those installed files while retaining configuration.
-
 ## Troubleshooting and logs
 
 Run:
@@ -107,7 +97,7 @@ and reject `PLAN.md`, `AGENTS.md`, `.agents`, `.codex`, `.git`, and the local
 repository path. No mail content, credentials, Thunderbird profile, or user
 configuration is included.
 
-See [ADR 0006](adr/0006-debian-and-portable-linux-release.md) for the `/opt`,
-Native Messaging, portable fallback, and systemd decisions. The desktop entry,
+See [ADR 0006](adr/0006-debian-release.md) for the `/opt`,
+Native Messaging, Debian-only release, and systemd decisions. The desktop entry,
 application artwork, settings window, and opt-in autostart are covered by
 [ADR 0007](adr/0007-settings-and-artwork.md).

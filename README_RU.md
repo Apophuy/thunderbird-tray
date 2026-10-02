@@ -51,14 +51,14 @@ KDE Plasma — в [руководстве по Wayland](docs/wayland.md). Для
 `/opt/thunderbird-tray`, предоставляет команду `thunderbird-tray` через
 `/usr/bin` и регистрирует Native Messaging host для всей системы. XPI из пакета
 нужно установить через менеджер дополнений Thunderbird; пакет никогда не
-изменяет профиль Thunderbird напрямую. Также доступен переносимый архив для
-установки без root. Команды установки, обновления и удаления приведены в
+изменяет профиль Thunderbird напрямую. Команды установки, обновления и
+удаления приведены в
 [руководстве по релизу и установке](docs/release.md).
 
 ```sh
 ./scripts/build-release.sh
 ./scripts/check-release.sh
-sudo apt install ./dist/release/thunderbird-tray_0.1.9_amd64.deb
+sudo apt install ./dist/release/thunderbird-tray_0.2.0_amd64.deb
 ```
 
 После этого установите

@@ -179,42 +179,9 @@ SOURCE_DATE_EPOCH=$source_date_epoch dpkg-deb --build --root-owner-group \
     --uniform-compression --compression=xz --compression-level=9 \
     "$deb_root" "$release_dir/$deb_name"
 
-bundle_name=thunderbird-tray-$version-$target
-bundle=$temporary/$bundle_name
-mkdir -p -- \
-    "$bundle/bin" \
-    "$bundle/share/applications" \
-    "$bundle/share/icons/hicolor" \
-    "$bundle/share/thunderbird-tray"
-install -m 0755 -- \
-    "$repository_root/target/$target/release/thunderbird-tray" \
-    "$bundle/bin/thunderbird-tray"
-install -m 0755 -- "$repository_root/packaging/portable/install.sh" "$bundle/install.sh"
-sed "s|@NATIVE_HOST_NAME@|$native_host_name|g" \
-    "$repository_root/packaging/portable/uninstall.sh.in" > "$bundle/uninstall.sh"
-chmod 0755 "$bundle/uninstall.sh"
-install -m 0644 -- "$repository_root/LICENSE" "$bundle/LICENSE"
-install -m 0644 -- "$repository_root/README.md" "$bundle/README.md"
-install -m 0644 -- "$repository_root/README_RU.md" "$bundle/README_RU.md"
-install -m 0644 -- "$repository_root/packaging/config.example.toml" \
-    "$bundle/share/thunderbird-tray/config.example.toml"
-install -m 0644 -- "$xpi_path" "$bundle/share/thunderbird-tray/thunderbird-tray.xpi"
-install -m 0644 -- "$repository_root/assets/io.github.apophuy.thunderbird-tray.desktop" \
-    "$bundle/share/applications/io.github.apophuy.thunderbird-tray.desktop"
-for size in 32 48 64 128 256; do
-    icon_directory=$bundle/share/icons/hicolor/${size}x${size}/apps
-    mkdir -p -- "$icon_directory"
-    install -m 0644 -- \
-        "$repository_root/assets/hicolor/${size}x${size}/apps/io.github.apophuy.thunderbird-tray.png" \
-        "$icon_directory/io.github.apophuy.thunderbird-tray.png"
-done
-
-tar --sort=name --mtime="@$source_date_epoch" --owner=0 --group=0 \
-    --numeric-owner --format=gnu -C "$temporary" -cJf \
-    "$release_dir/$bundle_name.tar.xz" "$bundle_name"
 (
     cd "$release_dir"
-    sha256sum "$deb_name" "$bundle_name.tar.xz" "$xpi_name" > SHA256SUMS
+    sha256sum "$deb_name" "$xpi_name" > SHA256SUMS
 )
 
 echo "Release artifacts written to: $release_dir"

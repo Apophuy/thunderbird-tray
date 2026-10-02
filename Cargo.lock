@@ -3576,7 +3576,7 @@ dependencies = [
 
 [[package]]
 name = "thunderbird-tray"
-version = "0.1.9"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "image",
@@ -3597,14 +3597,14 @@ dependencies = [
 
 [[package]]
 name = "thunderbird-tray-native-messaging"
-version = "0.1.9"
+version = "0.2.0"
 dependencies = [
  "thiserror 2.0.21",
 ]
 
 [[package]]
 name = "thunderbird-tray-protocol"
-version = "0.1.9"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",

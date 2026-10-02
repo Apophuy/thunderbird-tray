@@ -17,8 +17,6 @@ process.stdin.on("end", () => {
   process.stdout.write(root.version);
 });
 ')
-bundle_name=thunderbird-tray-$version-$target
-bundle_archive=$release_dir/$bundle_name.tar.xz
 xpi=$release_dir/thunderbird-tray-$version.xpi
 checksums=$release_dir/SHA256SUMS
 case "$target" in
@@ -40,10 +38,14 @@ const fs = require("fs");
 process.stdout.write(JSON.parse(fs.readFileSync(process.argv[1], "utf8")).extensionId);
 ' "$repository_root/identifiers.json")
 
-test -f "$bundle_archive"
 test -f "$xpi"
 test -f "$deb"
 test -f "$checksums"
+test "$(wc -l < "$checksums")" -eq 2
+if find "$release_dir" -maxdepth 1 -type f -name '*.tar.xz' -print | grep -q .; then
+    echo "release directory contains a removed portable archive" >&2
+    exit 1
+fi
 (cd "$release_dir" && sha256sum -c SHA256SUMS)
 unzip -q -t "$xpi"
 unzip -p "$xpi" LICENSE | cmp - "$repository_root/LICENSE"
@@ -62,34 +64,8 @@ process.stdin.on("end", () => {
 });
 ' "$extension_id"
 
-listing=$(tar -tJf "$bundle_archive")
-for required in \
-    "$bundle_name/LICENSE" \
-    "$bundle_name/README.md" \
-    "$bundle_name/README_RU.md" \
-    "$bundle_name/bin/thunderbird-tray" \
-    "$bundle_name/install.sh" \
-    "$bundle_name/uninstall.sh" \
-    "$bundle_name/share/applications/io.github.apophuy.thunderbird-tray.desktop" \
-    "$bundle_name/share/icons/hicolor/128x128/apps/io.github.apophuy.thunderbird-tray.png" \
-    "$bundle_name/share/thunderbird-tray/config.example.toml" \
-    "$bundle_name/share/thunderbird-tray/thunderbird-tray.xpi"
-do
-    printf '%s\n' "$listing" | grep -F -x "$required" >/dev/null
-done
-if printf '%s\n' "$listing" | grep -E '(^|/)(\.agents|\.codex|\.git|AGENTS\.md|PLAN\.md)(/|$)' >/dev/null; then
-    echo "release bundle contains agent or repository metadata" >&2
-    exit 1
-fi
-
 temporary=$(mktemp -d)
 trap 'rm -rf -- "$temporary"' EXIT HUP INT TERM
-tar -xJf "$bundle_archive" -C "$temporary"
-bundle=$temporary/$bundle_name
-if grep -R -a -F "$repository_root" "$bundle" >/dev/null; then
-    echo "release bundle contains the local repository path" >&2
-    exit 1
-fi
 
 test "$(dpkg-deb --field "$deb" Package)" = thunderbird-tray
 test "$(dpkg-deb --field "$deb" Version)" = "$debian_version"
@@ -113,8 +89,6 @@ test -f "$deb_root/usr/share/applications/io.github.apophuy.thunderbird-tray.des
 test -f "$deb_icon"
 unzip -p "$xpi" icons/icon-128.png > "$temporary/extension-icon-128.png"
 cmp "$deb_icon" "$temporary/extension-icon-128.png"
-cmp "$bundle/share/icons/hicolor/128x128/apps/io.github.apophuy.thunderbird-tray.png" \
-    "$temporary/extension-icon-128.png"
 test -L "$deb_root/usr/bin/thunderbird-tray"
 test "$(readlink "$deb_root/usr/bin/thunderbird-tray")" = \
     /opt/thunderbird-tray/bin/thunderbird-tray
@@ -187,37 +161,4 @@ if command -v lintian >/dev/null 2>&1; then
     lintian --fail-on error "$deb"
 fi
 
-home=$temporary/home
-data_home=$temporary/data
-config_home=$temporary/config
-mkdir -p -- "$home" "$data_home" "$config_home/thunderbird-tray"
-printf 'keep = true\n' > "$config_home/thunderbird-tray/user.toml"
-HOME=$home XDG_DATA_HOME=$data_home XDG_CONFIG_HOME=$config_home \
-    THUNDERBIRD_TRAY_PREFIX=$home/.local "$bundle/install.sh"
-installed_binary=$home/.local/bin/thunderbird-tray
-manifest=$home/.mozilla/native-messaging-hosts/io.github.apophuy.thunderbird_tray.json
-test -x "$installed_binary"
-test -f "$data_home/thunderbird-tray/thunderbird-tray.xpi"
-test -f "$data_home/applications/io.github.apophuy.thunderbird-tray.desktop"
-test -f "$data_home/icons/hicolor/128x128/apps/io.github.apophuy.thunderbird-tray.png"
-test -f "$manifest"
-"$installed_binary" --version | grep -F -x "thunderbird-tray $version" >/dev/null
-node -e '
-const fs = require("fs");
-const [manifestPath, expectedBinary] = process.argv.slice(1);
-const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-if (manifest.path !== expectedBinary) throw new Error("installed native host path is incorrect");
-if (manifest.allowed_extensions[0] !== process.argv[3]) {
-  throw new Error("installed extension ID is incorrect");
-}
-' "$manifest" "$installed_binary" "$extension_id"
-HOME=$home XDG_DATA_HOME=$data_home XDG_CONFIG_HOME=$config_home \
-    THUNDERBIRD_TRAY_PREFIX=$home/.local "$bundle/uninstall.sh"
-test ! -e "$installed_binary"
-test ! -e "$manifest"
-test ! -e "$data_home/thunderbird-tray"
-test ! -e "$data_home/applications/io.github.apophuy.thunderbird-tray.desktop"
-test ! -e "$data_home/icons/hicolor/128x128/apps/io.github.apophuy.thunderbird-tray.png"
-test -f "$config_home/thunderbird-tray/user.toml"
-
-echo "Release artifacts passed Debian, portable, privacy, install, and uninstall checks."
+echo "Release artifacts passed Debian, XPI, Native Messaging, and privacy checks."

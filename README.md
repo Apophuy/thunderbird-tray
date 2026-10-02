@@ -49,14 +49,13 @@ The primary release artifact is a Debian package. It installs the application
 under `/opt/thunderbird-tray`, exposes `thunderbird-tray` through `/usr/bin`, and
 registers the Native Messaging host system-wide. Install the packaged XPI from
 Thunderbird's Add-ons Manager; the package never edits a Thunderbird profile.
-A rootless portable bundle is also available. See the
-[release and installation guide](docs/release.md) for install, upgrade, and
-uninstall commands.
+See the [release and installation guide](docs/release.md) for install, upgrade,
+and uninstall commands.
 
 ```sh
 ./scripts/build-release.sh
 ./scripts/check-release.sh
-sudo apt install ./dist/release/thunderbird-tray_0.1.9_amd64.deb
+sudo apt install ./dist/release/thunderbird-tray_0.2.0_amd64.deb
 ```
 
 Then install

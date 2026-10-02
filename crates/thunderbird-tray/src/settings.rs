@@ -5,7 +5,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use slint::{ComponentHandle, SharedString};
+use slint::{ComponentHandle, Model, SharedString, VecModel};
 use thiserror::Error;
 
 use crate::autostart::{AutostartEntry, AutostartError};
@@ -205,7 +205,9 @@ pub fn run(
     let autostart = AutostartEntry::discover()?;
     let window = SettingsWindow::new()?;
     let language = language_for_mode(config.general.language, automatic_language);
-    let strings = apply_language(&window, language);
+    let option_models = SettingsOptionModels::new(SettingsStrings::new(language));
+    option_models.install(&window);
+    let strings = apply_language(&window, &option_models, language);
 
     if let Some(icon) = crate::tray_icons::application_image() {
         window.set_app_icon(icon);
@@ -230,24 +232,13 @@ pub fn run(
 
     let saved_values = Rc::new(RefCell::new(SettingsValues::from_window(&window)));
     let preview_language = Rc::new(Cell::new(language));
-
-    let weak = window.as_weak();
-    let edited_saved_values = Rc::clone(&saved_values);
-    let edited_preview_language = Rc::clone(&preview_language);
-    window.on_edited(move || {
-        let Some(window) = weak.upgrade() else {
-            return;
-        };
-        let current_values = SettingsValues::from_window(&window);
-        let language = language_for_mode(current_values.language, automatic_language);
-        if language != edited_preview_language.get() {
-            apply_language(&window, language);
-            edited_preview_language.set(language);
-        }
-        let changed = current_values != *edited_saved_values.borrow();
-        window.set_apply_enabled(changed);
-        window.set_status_message(SharedString::default());
-    });
+    install_edit_handler(
+        &window,
+        Rc::clone(&saved_values),
+        preview_language,
+        option_models,
+        automatic_language,
+    );
 
     window.on_cancel(move || {
         let _ = slint::quit_event_loop();
@@ -313,7 +304,35 @@ pub fn run(
     Ok(())
 }
 
-fn apply_language(window: &SettingsWindow, language: Language) -> SettingsStrings {
+fn install_edit_handler(
+    window: &SettingsWindow,
+    saved_values: Rc<RefCell<SettingsValues>>,
+    preview_language: Rc<Cell<Language>>,
+    option_models: SettingsOptionModels,
+    automatic_language: Language,
+) {
+    let weak = window.as_weak();
+    window.on_edited(move || {
+        let Some(window) = weak.upgrade() else {
+            return;
+        };
+        let current_values = SettingsValues::from_window(&window);
+        let language = language_for_mode(current_values.language, automatic_language);
+        if language != preview_language.get() {
+            apply_language(&window, &option_models, language);
+            preview_language.set(language);
+        }
+        let changed = current_values != *saved_values.borrow();
+        window.set_apply_enabled(changed);
+        window.set_status_message(SharedString::default());
+    });
+}
+
+fn apply_language(
+    window: &SettingsWindow,
+    option_models: &SettingsOptionModels,
+    language: Language,
+) -> SettingsStrings {
     let strings = SettingsStrings::new(language);
     window.set_window_title(strings.window_title.into());
     window.set_general_tab(strings.general_tab.into());
@@ -334,32 +353,59 @@ fn apply_language(window: &SettingsWindow, language: Language) -> SettingsString
     window.set_apply_label(strings.apply.into());
     window.set_done_label(strings.done.into());
     window.set_cancel_label(strings.cancel.into());
-    window.set_language_options(
-        Rc::new(slint::VecModel::from(vec![
-            SharedString::from(strings.automatic),
-            SharedString::from("English"),
-            SharedString::from("Русский"),
-        ]))
-        .into(),
-    );
-    window.set_theme_options(
-        Rc::new(slint::VecModel::from(vec![
-            SharedString::from(strings.theme_system),
-            SharedString::from(strings.theme_light),
-            SharedString::from(strings.theme_dark),
-        ]))
-        .into(),
-    );
-    window.set_backend_options(
-        Rc::new(slint::VecModel::from(vec![
-            SharedString::from(strings.backend_auto),
-            SharedString::from("KDE Plasma Wayland"),
-            SharedString::from("X11"),
-            SharedString::from(strings.backend_none),
-        ]))
-        .into(),
-    );
+    option_models.localize(strings);
     strings
+}
+
+#[derive(Clone)]
+struct SettingsOptionModels {
+    language: Rc<VecModel<SharedString>>,
+    theme: Rc<VecModel<SharedString>>,
+    backend: Rc<VecModel<SharedString>>,
+}
+
+impl SettingsOptionModels {
+    fn new(strings: SettingsStrings) -> Self {
+        Self {
+            language: Rc::new(VecModel::from(vec![
+                SharedString::from(strings.automatic),
+                SharedString::from("English"),
+                SharedString::from("Русский"),
+            ])),
+            theme: Rc::new(VecModel::from(vec![
+                SharedString::from(strings.theme_system),
+                SharedString::from(strings.theme_light),
+                SharedString::from(strings.theme_dark),
+            ])),
+            backend: Rc::new(VecModel::from(vec![
+                SharedString::from(strings.backend_auto),
+                SharedString::from("KDE Plasma Wayland"),
+                SharedString::from("X11"),
+                SharedString::from(strings.backend_none),
+            ])),
+        }
+    }
+
+    fn install(&self, window: &SettingsWindow) {
+        window.set_language_options(self.language.clone().into());
+        window.set_theme_options(self.theme.clone().into());
+        window.set_backend_options(self.backend.clone().into());
+    }
+
+    fn localize(&self, strings: SettingsStrings) {
+        self.language
+            .set_row_data(0, SharedString::from(strings.automatic));
+        self.theme
+            .set_row_data(0, SharedString::from(strings.theme_system));
+        self.theme
+            .set_row_data(1, SharedString::from(strings.theme_light));
+        self.theme
+            .set_row_data(2, SharedString::from(strings.theme_dark));
+        self.backend
+            .set_row_data(0, SharedString::from(strings.backend_auto));
+        self.backend
+            .set_row_data(3, SharedString::from(strings.backend_none));
+    }
 }
 
 fn ensure_tray_service(
@@ -638,6 +684,67 @@ mod tests {
         assert_eq!(automatic.language, "Язык интерфейса");
         assert_eq!(english.language, "Interface language");
         assert_eq!(russian.language, "Язык интерфейса");
+    }
+
+    #[test]
+    fn localizing_options_updates_rows_without_replacing_models() {
+        let models = SettingsOptionModels::new(SettingsStrings::new(Language::English));
+        let language_model = Rc::clone(&models.language);
+        let theme_model = Rc::clone(&models.theme);
+        let backend_model = Rc::clone(&models.backend);
+
+        models.localize(SettingsStrings::new(Language::Russian));
+
+        assert!(Rc::ptr_eq(&language_model, &models.language));
+        assert!(Rc::ptr_eq(&theme_model, &models.theme));
+        assert!(Rc::ptr_eq(&backend_model, &models.backend));
+        assert_eq!(
+            models.language.row_data(0).as_deref(),
+            Some("Автоматически")
+        );
+        assert_eq!(models.language.row_data(1).as_deref(), Some("English"));
+        assert_eq!(models.language.row_data(2).as_deref(), Some("Русский"));
+        assert_eq!(models.theme.row_data(0).as_deref(), Some("Системная"));
+        assert_eq!(models.backend.row_data(3).as_deref(), Some("Нет"));
+    }
+
+    #[test]
+    fn language_selection_keeps_its_index_and_enables_apply() {
+        let window = SettingsWindow::new().unwrap();
+        let automatic_language = Language::Russian;
+        let initial_language = language_for_mode(LanguageMode::Auto, automatic_language);
+        let option_models = SettingsOptionModels::new(SettingsStrings::new(initial_language));
+        option_models.install(&window);
+        apply_language(&window, &option_models, initial_language);
+        window.set_language_index(language_index(LanguageMode::Auto));
+        window.set_apply_enabled(false);
+
+        let saved_values = Rc::new(RefCell::new(SettingsValues::from_window(&window)));
+        install_edit_handler(
+            &window,
+            saved_values,
+            Rc::new(Cell::new(initial_language)),
+            option_models,
+            automatic_language,
+        );
+
+        window.set_language_index(language_index(LanguageMode::En));
+        window.invoke_edited();
+        assert_eq!(
+            window.get_language_index(),
+            language_index(LanguageMode::En)
+        );
+        assert_eq!(window.get_language_label().as_str(), "Interface language");
+        assert!(window.get_apply_enabled());
+
+        window.set_language_index(language_index(LanguageMode::Ru));
+        window.invoke_edited();
+        assert_eq!(
+            window.get_language_index(),
+            language_index(LanguageMode::Ru)
+        );
+        assert_eq!(window.get_language_label().as_str(), "Язык интерфейса");
+        assert!(window.get_apply_enabled());
     }
 
     #[test]
