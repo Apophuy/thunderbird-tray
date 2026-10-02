@@ -6,9 +6,9 @@ use std::ffi::{OsStr, OsString};
 use thunderbird_tray::config::{ThunderbirdConfig, WindowBackend};
 use thunderbird_tray::window::{
     ActivationOutcome, BackendAvailability, DesktopEnvironment, LaunchError, OpenOutcome,
-    ProcessLauncher, SelectionReason, ThunderbirdLauncher, UnsupportedWindowControl,
-    WindowCapabilities, WindowControl, WindowError, WindowOperation, open_thunderbird,
-    select_backend,
+    ProcessLauncher, SelectionReason, ThunderbirdLauncher, ToggleThunderbirdOutcome,
+    ToggleVisibilityOutcome, UnsupportedWindowControl, WindowCapabilities, WindowControl,
+    WindowError, WindowOperation, open_thunderbird, select_backend, toggle_thunderbird,
 };
 
 fn environment(values: &[(&str, &str)]) -> DesktopEnvironment {
@@ -128,11 +128,19 @@ fn unsupported_backend_reports_each_missing_capability() {
             ..
         })
     ));
+    assert!(matches!(
+        backend.toggle_visibility(),
+        Err(WindowError::Unsupported {
+            operation: WindowOperation::Toggle,
+            ..
+        })
+    ));
 }
 
 struct MockBackend {
     capabilities: WindowCapabilities,
     activation: ActivationOutcome,
+    toggle: ToggleVisibilityOutcome,
 }
 
 impl WindowControl for MockBackend {
@@ -158,6 +166,10 @@ impl WindowControl for MockBackend {
 
     fn show(&self) -> Result<(), WindowError> {
         Ok(())
+    }
+
+    fn toggle_visibility(&self) -> Result<ToggleVisibilityOutcome, WindowError> {
+        Ok(self.toggle)
     }
 }
 
@@ -186,6 +198,7 @@ fn open_activates_when_possible_and_launches_when_no_window_control_exists() {
             ..WindowCapabilities::default()
         },
         activation: ActivationOutcome::Activated,
+        toggle: ToggleVisibilityOutcome::Shown,
     };
     assert!(matches!(
         open_thunderbird(&capable, &launcher, &config).unwrap(),
@@ -196,6 +209,7 @@ fn open_activates_when_possible_and_launches_when_no_window_control_exists() {
     let no_window = MockBackend {
         capabilities: capable.capabilities,
         activation: ActivationOutcome::NoWindow,
+        toggle: ToggleVisibilityOutcome::NoWindow,
     };
     assert!(matches!(
         open_thunderbird(&no_window, &launcher, &config).unwrap(),
@@ -213,6 +227,49 @@ fn open_activates_when_possible_and_launches_when_no_window_control_exists() {
         OpenOutcome::Launched(2)
     ));
     assert_eq!(launcher.launches.get(), 2);
+}
+
+#[test]
+fn double_activation_toggles_a_window_or_launches_when_none_exists() {
+    let config = ThunderbirdConfig::default();
+    let launcher = MockLauncher::default();
+    let capabilities = WindowCapabilities {
+        activate: true,
+        hide: true,
+        show: true,
+        ..WindowCapabilities::default()
+    };
+
+    let visible = MockBackend {
+        capabilities,
+        activation: ActivationOutcome::Activated,
+        toggle: ToggleVisibilityOutcome::Hidden,
+    };
+    assert!(matches!(
+        toggle_thunderbird(&visible, &launcher, &config).unwrap(),
+        ToggleThunderbirdOutcome::Hidden
+    ));
+
+    let hidden = MockBackend {
+        capabilities,
+        activation: ActivationOutcome::Activated,
+        toggle: ToggleVisibilityOutcome::Shown,
+    };
+    assert!(matches!(
+        toggle_thunderbird(&hidden, &launcher, &config).unwrap(),
+        ToggleThunderbirdOutcome::Shown
+    ));
+
+    let absent = MockBackend {
+        capabilities,
+        activation: ActivationOutcome::NoWindow,
+        toggle: ToggleVisibilityOutcome::NoWindow,
+    };
+    assert!(matches!(
+        toggle_thunderbird(&absent, &launcher, &config).unwrap(),
+        ToggleThunderbirdOutcome::Launched(1)
+    ));
+    assert_eq!(launcher.launches.get(), 1);
 }
 
 #[test]

@@ -54,6 +54,9 @@ globally, no root permission is needed, and no network socket is opened.
   window, so a stale script left by a crash cannot keep affecting Thunderbird.
 - **Show/Open** clears `skipTaskbar`, restores the selected window, and makes it
   active.
+- **Double activation of the tray icon** reads the same public `minimized` and
+  `skipTaskbar` properties: it hides a shown window, restores and activates a
+  hidden window, or launches Thunderbird when no matching window exists.
 - **Start hidden** is opt-in. An autostarted service launches Thunderbird and
   performs the same hide operation after Native Messaging confirms that its
   window is ready.

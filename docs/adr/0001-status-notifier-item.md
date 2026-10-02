@@ -38,8 +38,10 @@ enter core state or the Native Messaging protocol.
 Expose the item as activatable rather than `ItemIsMenu`. The SNI contract sends
 an `Activate` request for a primary activation but carries no click count, so
 the adapter recognizes two requests within 500 ms as a double activation and
-enqueues Open Thunderbird. A single activation does nothing; the DBusMenu
-remains available through Plasma's context/right-click gesture.
+enqueues Toggle Thunderbird. A capable backend inspects the current window
+state and hides a visible window or restores a hidden one; if no window exists,
+the application launches Thunderbird. A single activation does nothing; the
+DBusMenu remains available through Plasma's context/right-click gesture.
 
 ## Alternatives considered
 

@@ -54,6 +54,7 @@ slint::slint! {
         in property <string> apply-label;
         in property <string> done-label;
         in property <string> cancel-label;
+        in property <bool> russian-interface;
         in-out property <bool> autostart-enabled;
         in-out property <bool> start-thunderbird;
         in-out property <bool> start-minimized;
@@ -121,12 +122,24 @@ slint::slint! {
                         }
                         Text { text: root.language-label; }
                         ComboBox {
-                            model: ["Automatic / Автоматически", "English", "Русский"];
+                            visible: !root.russian-interface;
+                            model: ["Automatic", "English", "Русский"];
+                            current-index <=> root.language-index;
+                        }
+                        ComboBox {
+                            visible: root.russian-interface;
+                            model: ["Автоматически", "English", "Русский"];
                             current-index <=> root.language-index;
                         }
                         Text { text: root.theme-label; }
                         ComboBox {
-                            model: ["System / Системная", "Light / Светлая", "Dark / Тёмная"];
+                            visible: !root.russian-interface;
+                            model: ["System", "Light", "Dark"];
+                            current-index <=> root.theme-index;
+                        }
+                        ComboBox {
+                            visible: root.russian-interface;
+                            model: ["Системная", "Светлая", "Тёмная"];
                             current-index <=> root.theme-index;
                         }
                         Rectangle { vertical-stretch: 1; }
@@ -167,7 +180,13 @@ slint::slint! {
                         LineEdit { text <=> root.thunderbird-command; }
                         Text { text: root.backend-label; }
                         ComboBox {
-                            model: ["Automatic / Автоматически", "KDE Plasma Wayland", "X11", "None / Нет"];
+                            visible: !root.russian-interface;
+                            model: ["Automatic", "KDE Plasma Wayland", "X11", "None"];
+                            current-index <=> root.backend-index;
+                        }
+                        ComboBox {
+                            visible: root.russian-interface;
+                            model: ["Автоматически", "KDE Plasma Wayland", "X11", "Нет"];
                             current-index <=> root.backend-index;
                         }
                         Rectangle { vertical-stretch: 1; }
@@ -395,6 +414,7 @@ fn install_edit_handler(
 
 fn apply_language(window: &SettingsWindow, language: Language) -> SettingsStrings {
     let strings = SettingsStrings::new(language);
+    window.set_russian_interface(language == Language::Russian);
     window.set_window_title(strings.window_title.into());
     window.set_general_tab(strings.general_tab.into());
     window.set_tray_tab(strings.tray_tab.into());
@@ -777,6 +797,26 @@ mod tests {
                 renderer.render(pixels.make_mut_slice(), size.width as usize);
             }));
         });
+        assert_eq!(
+            window.get_language_index(),
+            language_index(LanguageMode::En)
+        );
+        assert_eq!(window.get_theme_index(), theme_index(ThemeMode::Dark));
+        assert_eq!(
+            window.get_backend_index(),
+            backend_index(WindowBackend::KdeWayland)
+        );
+
+        apply_language(&window, Language::Russian);
+        TEST_WINDOW.with(|test_window| {
+            let size = slint::PhysicalSize::new(680, 540);
+            let mut pixels =
+                slint::SharedPixelBuffer::<slint::Rgb8Pixel>::new(size.width, size.height);
+            assert!(test_window.draw_if_needed(|renderer| {
+                renderer.render(pixels.make_mut_slice(), size.width as usize);
+            }));
+        });
+        assert!(window.get_russian_interface());
         assert_eq!(
             window.get_language_index(),
             language_index(LanguageMode::En)

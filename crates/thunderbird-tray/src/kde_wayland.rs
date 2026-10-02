@@ -21,8 +21,8 @@ use crate::lifecycle::{
     APPLICATION_ID, LIFECYCLE_INTERFACE, LIFECYCLE_OBJECT_PATH, WindowActionReport,
 };
 use crate::window::{
-    ActivationOutcome, DesktopEnvironment, WindowCapabilities, WindowControl, WindowError,
-    WindowOperation,
+    ActivationOutcome, DesktopEnvironment, ToggleVisibilityOutcome, WindowCapabilities,
+    WindowControl, WindowError, WindowOperation,
 };
 
 const KWIN_SERVICE: &str = "org.kde.KWin";
@@ -250,6 +250,17 @@ impl WindowControl for KdeWindowControl {
             })
             .map_err(|source| Self::operation_error(WindowOperation::Show, source))
     }
+
+    fn toggle_visibility(&self) -> Result<ToggleVisibilityOutcome, WindowError> {
+        self.perform(KdeAction::Toggle)
+            .and_then(|outcome| match outcome {
+                KdeOutcome::Hidden => Ok(ToggleVisibilityOutcome::Hidden),
+                KdeOutcome::Shown => Ok(ToggleVisibilityOutcome::Shown),
+                KdeOutcome::NoWindow => Ok(ToggleVisibilityOutcome::NoWindow),
+                other => Err(KdeError::UnexpectedOutcome(other.as_str().to_owned())),
+            })
+            .map_err(|source| Self::operation_error(WindowOperation::Toggle, source))
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -258,6 +269,7 @@ enum KdeAction {
     Activate,
     Hide,
     Show,
+    Toggle,
 }
 
 impl KdeAction {
@@ -267,6 +279,7 @@ impl KdeAction {
             Self::Activate => "activate",
             Self::Hide => "hide",
             Self::Show => "show",
+            Self::Toggle => "toggle",
         }
     }
 }
@@ -489,6 +502,20 @@ fn render_script(action: KdeAction, request_id: &str) -> String {
             target.skipTaskbar = true;
             target.minimized = true;
             outcome = target.skipTaskbar && target.minimized ? "hidden" : "unsupported";
+        }} else if (action === "toggle") {{
+            if (target.minimized || target.skipTaskbar) {{
+                target.skipTaskbar = false;
+                target.minimized = false;
+                workspace.activeWindow = target;
+                outcome = !target.skipTaskbar && !target.minimized && workspace.activeWindow === target
+                    ? "shown" : "unsupported";
+            }} else if (target.minimizable) {{
+                target.skipTaskbar = true;
+                target.minimized = true;
+                outcome = target.skipTaskbar && target.minimized ? "hidden" : "unsupported";
+            }} else {{
+                outcome = "unsupported";
+            }}
         }} else {{
             outcome = "unsupported";
         }}
@@ -594,6 +621,12 @@ mod tests {
         assert!(hide_script.contains("target.skipTaskbar = true"));
         assert!(hide_script.contains("target.minimized = true"));
         assert!(hide_script.contains("target.skipTaskbar && target.minimized"));
+
+        let toggle_script = render_script(KdeAction::Toggle, "123-6");
+        assert!(toggle_script.contains("target.minimized || target.skipTaskbar"));
+        assert!(toggle_script.contains("target.skipTaskbar = false"));
+        assert!(toggle_script.contains("workspace.activeWindow = target"));
+        assert!(toggle_script.contains("target.skipTaskbar = true"));
     }
 
     #[test]
@@ -611,6 +644,8 @@ mod tests {
     #[test]
     fn reports_are_parsed_strictly() {
         assert_eq!(KdeOutcome::parse("found").unwrap(), KdeOutcome::Found);
+        assert_eq!(KdeOutcome::parse("hidden").unwrap(), KdeOutcome::Hidden);
+        assert_eq!(KdeOutcome::parse("shown").unwrap(), KdeOutcome::Shown);
         assert_eq!(KdeOutcome::parse("noWindow").unwrap(), KdeOutcome::NoWindow);
         assert!(matches!(
             KdeOutcome::parse("pretend-success"),

@@ -34,6 +34,7 @@ pub struct TrayPresentation {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TrayAction {
     OpenThunderbird,
+    ToggleThunderbird,
     HideThunderbird,
     OpenSettings,
     Refresh,

@@ -45,7 +45,7 @@ impl SniTray {
 
     fn activate_at(&mut self, now: Instant) {
         if self.record_activation(now) {
-            self.enqueue(TrayAction::OpenThunderbird);
+            self.enqueue(TrayAction::ToggleThunderbird);
         }
     }
 }
@@ -305,14 +305,14 @@ mod tests {
     }
 
     #[test]
-    fn two_primary_activations_open_thunderbird_but_one_does_not() {
+    fn two_primary_activations_toggle_thunderbird_but_one_does_not() {
         let (mut tray, receiver) = tray(TrayState::NoUnread);
         let first = Instant::now();
 
         tray.activate_at(first);
         assert!(receiver.try_recv().is_err());
         tray.activate_at(first + Duration::from_millis(300));
-        assert_eq!(receiver.recv().unwrap(), TrayAction::OpenThunderbird);
+        assert_eq!(receiver.recv().unwrap(), TrayAction::ToggleThunderbird);
 
         tray.activate_at(first + Duration::from_secs(2));
         tray.activate_at(first + Duration::from_millis(2_600));

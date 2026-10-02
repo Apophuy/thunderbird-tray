@@ -48,15 +48,17 @@ English and Russian labels use DBusMenu underscore mnemonics where practical.
 The read-only status line explains the current state without requiring a
 tooltip or icon interpretation.
 
-Two primary activations within 500 ms open or activate Thunderbird. The SNI
-protocol does not carry a click count, so the application recognizes the pair
-of `Activate` calls; a single primary activation performs no action. The native
-menu remains available from the context/right-click gesture.
+Two primary activations within 500 ms toggle Thunderbird: a visible window is
+hidden to the tray, a hidden window is restored and activated, and a missing
+window is launched. The SNI protocol does not carry a click count, so the
+application recognizes the pair of `Activate` calls; a single primary
+activation performs no action. The native menu remains available from the
+context/right-click gesture.
 
 On KDE Plasma Wayland, minimizing Thunderbird from the title bar also removes
 it from the task manager while the tray service is running. The tray Open action
-or double activation restores the task-manager entry before activating the
-window.
+restores the task-manager entry before activating the window; double activation
+switches between that shown state and the same hidden-to-tray state.
 
 ## Accessibility and behavior
 

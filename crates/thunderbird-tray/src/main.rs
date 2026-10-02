@@ -25,8 +25,8 @@ use thunderbird_tray::sni::SniService;
 use thunderbird_tray::tray::{TrayAction, TrayModel};
 use thunderbird_tray::window::{
     BackendAvailability, DesktopEnvironment, OpenOutcome, ProcessLauncher, ThunderbirdLauncher,
-    UnsupportedWindowControl, WindowCapabilities, WindowControl, open_thunderbird, reap_children,
-    select_backend,
+    ToggleThunderbirdOutcome, UnsupportedWindowControl, WindowCapabilities, WindowControl,
+    open_thunderbird, reap_children, select_backend, toggle_thunderbird,
 };
 use thunderbird_tray::x11::X11WindowControl;
 use thunderbird_tray::{HostError, run_host, run_host_with_callbacks, write_message};
@@ -482,6 +482,27 @@ fn run_application(
                         }
                         Err(source) => {
                             error!(error = %source, "could not open Thunderbird");
+                        }
+                    }
+                }
+                TrayAction::ToggleThunderbird => {
+                    match toggle_thunderbird(
+                        window_control.as_ref(),
+                        &launcher,
+                        &config.thunderbird,
+                    ) {
+                        Ok(ToggleThunderbirdOutcome::Hidden) => {
+                            info!("hid Thunderbird window from the task manager");
+                        }
+                        Ok(ToggleThunderbirdOutcome::Shown) => {
+                            info!("restored and activated the Thunderbird window");
+                        }
+                        Ok(ToggleThunderbirdOutcome::Launched(child)) => {
+                            info!(pid = child.id(), "started Thunderbird");
+                            launcher_children.push(child);
+                        }
+                        Err(source) => {
+                            error!(error = %source, "could not toggle Thunderbird visibility");
                         }
                     }
                 }

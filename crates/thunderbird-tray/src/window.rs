@@ -164,6 +164,7 @@ pub enum WindowOperation {
     Activate,
     Hide,
     Show,
+    Toggle,
 }
 
 impl fmt::Display for WindowOperation {
@@ -173,6 +174,7 @@ impl fmt::Display for WindowOperation {
             Self::Activate => "activate",
             Self::Hide => "hide",
             Self::Show => "show",
+            Self::Toggle => "toggle",
         })
     }
 }
@@ -183,6 +185,13 @@ pub enum ActivationOutcome {
     NoWindow,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ToggleVisibilityOutcome {
+    Hidden,
+    Shown,
+    NoWindow,
+}
+
 pub trait WindowControl {
     fn backend(&self) -> WindowBackendChoice;
     fn capabilities(&self) -> WindowCapabilities;
@@ -190,6 +199,7 @@ pub trait WindowControl {
     fn activate(&self) -> Result<ActivationOutcome, WindowError>;
     fn hide(&self) -> Result<(), WindowError>;
     fn show(&self) -> Result<(), WindowError>;
+    fn toggle_visibility(&self) -> Result<ToggleVisibilityOutcome, WindowError>;
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -234,6 +244,10 @@ impl WindowControl for UnsupportedWindowControl {
 
     fn show(&self) -> Result<(), WindowError> {
         Err(self.unsupported(WindowOperation::Show))
+    }
+
+    fn toggle_visibility(&self) -> Result<ToggleVisibilityOutcome, WindowError> {
+        Err(self.unsupported(WindowOperation::Toggle))
     }
 }
 
@@ -309,6 +323,13 @@ pub enum OpenOutcome<Handle> {
     Launched(Handle),
 }
 
+#[derive(Debug)]
+pub enum ToggleThunderbirdOutcome<Handle> {
+    Hidden,
+    Shown,
+    Launched(Handle),
+}
+
 pub fn open_thunderbird<Backend, Launcher>(
     backend: &Backend,
     launcher: &Launcher,
@@ -328,6 +349,35 @@ where
     launcher
         .launch(config)
         .map(OpenOutcome::Launched)
+        .map_err(OpenError::Launch)
+}
+
+pub fn toggle_thunderbird<Backend, Launcher>(
+    backend: &Backend,
+    launcher: &Launcher,
+    config: &ThunderbirdConfig,
+) -> Result<ToggleThunderbirdOutcome<Launcher::Handle>, OpenError>
+where
+    Backend: WindowControl + ?Sized,
+    Launcher: ThunderbirdLauncher,
+{
+    let capabilities = backend.capabilities();
+    if capabilities.hide && capabilities.show {
+        match backend.toggle_visibility()? {
+            ToggleVisibilityOutcome::Hidden => return Ok(ToggleThunderbirdOutcome::Hidden),
+            ToggleVisibilityOutcome::Shown => return Ok(ToggleThunderbirdOutcome::Shown),
+            ToggleVisibilityOutcome::NoWindow => {}
+        }
+    } else if capabilities.activate {
+        match backend.activate()? {
+            ActivationOutcome::Activated => return Ok(ToggleThunderbirdOutcome::Shown),
+            ActivationOutcome::NoWindow => {}
+        }
+    }
+
+    launcher
+        .launch(config)
+        .map(ToggleThunderbirdOutcome::Launched)
         .map_err(OpenError::Launch)
 }
 

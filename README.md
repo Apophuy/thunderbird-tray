@@ -55,7 +55,7 @@ and uninstall commands.
 ```sh
 ./scripts/build-release.sh
 ./scripts/check-release.sh
-sudo apt install ./dist/release/thunderbird-tray_0.2.2_amd64.deb
+sudo apt install ./dist/release/thunderbird-tray_0.2.3_amd64.deb
 ```
 
 Then install
@@ -108,8 +108,9 @@ Open Thunderbird restores and activates the topmost existing Thunderbird
 window; if no window exists, it launches the configured executable. Window
 activation is capability-based and falls back to launch when the selected
 backend cannot control an existing window.
-Double-activating the tray icon opens or activates Thunderbird; use the
-context/right-click gesture for the native menu.
+Double-activating the tray icon toggles Thunderbird: a visible window is hidden
+to the tray, a hidden window is restored, and an absent window is launched. Use
+the context/right-click gesture for the native menu.
 
 On supported KDE Plasma Wayland sessions, **Hide Thunderbird** minimizes the
 window and removes it from the task manager without stopping mail monitoring.
@@ -117,7 +118,7 @@ The public Thunderbird/KWin interfaces cannot intercept the title-bar close
 button before the window closes, so the explicit Hide action is used instead.
 The normal minimize button also removes the window from the task manager while
 `thunderbird-tray` is running; use the tray menu or double activation to restore
-it.
+it, and double activation again to hide it.
 
 The icons are embedded at multiple sizes, so the core tray UI does not depend
 on an installed icon theme. Plasma renders the menu itself and supplies native

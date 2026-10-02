@@ -26,7 +26,8 @@ mod implementation {
     use super::DesktopEnvironment;
     use crate::config::WindowBackend;
     use crate::window::{
-        ActivationOutcome, WindowCapabilities, WindowControl, WindowError, WindowOperation,
+        ActivationOutcome, ToggleVisibilityOutcome, WindowCapabilities, WindowControl, WindowError,
+        WindowOperation,
     };
 
     const OPERATION_TIMEOUT: Duration = Duration::from_millis(750);
@@ -252,6 +253,27 @@ mod implementation {
             self.restore(window)
                 .map_err(|source| Self::operation_error(WindowOperation::Show, source))
         }
+
+        fn toggle_visibility(&self) -> Result<ToggleVisibilityOutcome, WindowError> {
+            let Some(window) = self
+                .thunderbird_window()
+                .map_err(|source| Self::operation_error(WindowOperation::Toggle, source))?
+            else {
+                return Ok(ToggleVisibilityOutcome::NoWindow);
+            };
+            let hidden = self
+                .is_hidden(window)
+                .map_err(|source| Self::operation_error(WindowOperation::Toggle, source))?;
+            if hidden {
+                self.restore(window)
+                    .map(|()| ToggleVisibilityOutcome::Shown)
+                    .map_err(|source| Self::operation_error(WindowOperation::Toggle, source))
+            } else {
+                self.set_iconic(window)
+                    .map(|()| ToggleVisibilityOutcome::Hidden)
+                    .map_err(|source| Self::operation_error(WindowOperation::Toggle, source))
+            }
+        }
     }
 
     struct Atoms {
@@ -376,7 +398,8 @@ mod implementation {
     use super::DesktopEnvironment;
     use crate::config::WindowBackend;
     use crate::window::{
-        ActivationOutcome, WindowCapabilities, WindowControl, WindowError, WindowOperation,
+        ActivationOutcome, ToggleVisibilityOutcome, WindowCapabilities, WindowControl, WindowError,
+        WindowOperation,
     };
 
     pub struct X11WindowControl;
@@ -418,6 +441,10 @@ mod implementation {
 
         fn show(&self) -> Result<(), WindowError> {
             Err(Self::unsupported(WindowOperation::Show))
+        }
+
+        fn toggle_visibility(&self) -> Result<ToggleVisibilityOutcome, WindowError> {
+            Err(Self::unsupported(WindowOperation::Toggle))
         }
     }
 
